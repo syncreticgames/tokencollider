@@ -2,8 +2,7 @@
 
 ![The TokenCollider viewport: phrases about software and AI, with their trails across the encoder's layers](docs/tokencollider_screenshot.png)
 
-TokenCollider shows how a text encoder arranges phrases, and turns points in
-that arrangement into conditioning files for diffusion models.
+TokenCollider lets you view relationships between language model embeddings, and exports the coordinates they share to diffusion models.
 
 Some image models, such as [Krea 2](https://www.krea.ai) and
 [Z-Image](https://github.com/Tongyi-MAI/Z-Image), read their prompt through a
