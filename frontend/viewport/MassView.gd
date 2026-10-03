@@ -19,7 +19,7 @@ var _massed := false
 
 
 func show_blend(weights: Dictionary, landmarks: Dictionary, origin: Vector3) -> void:
-	## Normalised against the UNIFORM SHARE (total / n), not max or a
+	## Normalized against the UNIFORM SHARE (total / n), not max or a
 	## percentile. Max flattens everything when one hub dominates; a percentile
 	## inflates hundreds of average nodes at universe scale and the whole scene
 	## balloons, which reads as a view reset. Average contributors stay

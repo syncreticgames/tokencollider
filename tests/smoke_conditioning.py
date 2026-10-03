@@ -585,7 +585,7 @@ def test_light_warm_stays_light():
         assert depths == {"10", "4"}, depths
 
         # A full (non-light) embedder does store the stack, one row per
-        # sampler depth, which is the behaviour light mode is opting out of.
+        # sampler depth, which is the behavior light mode is opting out of.
         full = Recorder(store, layer="10", light=False,
                         sampler_layers=(2, 5, 8, 10))
         full.embed_many(["delta"])
@@ -821,7 +821,7 @@ def test_check_frame():
 def test_single_layer_files_record_their_layer():
     """A single-layer file's one key doesn't say which hidden state it is, and
     "layer" is the profile's charting setting. A profile charting at 20 whose
-    sampler reads 35 used to load its export labelled 20."""
+    sampler reads 35 used to load its export labeled 20."""
     from safetensors.numpy import save_file
 
     t = np.zeros((3, 4), dtype=np.float32)

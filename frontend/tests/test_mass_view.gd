@@ -1,6 +1,6 @@
 extends RefCounted
 ## Mass view scales landmarks by weight and tethers the heavy ones. The rule
-## worth pinning is the normalisation: against the uniform share, so the look
+## worth pinning is the normalization: against the uniform share, so the look
 ## is the same at 30 landmarks or 2000.
 const MassView := preload("res://viewport/MassView.gd")
 
@@ -45,7 +45,7 @@ func test_heavy_landmark_swells_and_light_one_shrinks() -> void:
 
 func test_scale_is_free_of_universe_size() -> void:
 	## The same relative weight must look the same in a small and a large
-	## universe, which is the whole reason for normalising by uniform share.
+	## universe, which is the whole reason for normalizing by uniform share.
 	var small_lm := _field(["a", "b", "c"])
 	var big_names := ["a"]
 	for i in 100:

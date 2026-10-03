@@ -29,7 +29,7 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".gif"}
 POOLINGS = ("image", "tail")
 PREFIX = "image"
 THUMB_PX = 160
-# Every picture is centre-cropped to a square and resized to this, so every
+# Every picture is center-cropped to a square and resized to this, so every
 # picture is the same token grid (512 / 16 / 2 = 16 per side, 256 tokens)
 # and a blend of pictures aligns patch by patch. Part of what an image's
 # hidden states are, so it is a constant rather than a flag; change it and
@@ -69,7 +69,7 @@ def image_sha(path: Path) -> str:
 
 
 def prepare(path: Path, size: int = IMAGE_SIZE):
-    """The picture as the vision tower sees it: upright, RGB, centre-cropped
+    """The picture as the vision tower sees it: upright, RGB, center-cropped
     to a square, resized to `size`. Returns a PIL image."""
     from PIL import Image, ImageOps
 

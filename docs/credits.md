@@ -1,4 +1,4 @@
-# Licence and credits
+# License and credits
 
 TokenCollider is MIT licensed (see `LICENSE`). What follows is what the
 project depends on and what each dependency asks of you. It is a practical
@@ -39,7 +39,7 @@ to carry Godot's notice, so it must stay reachable in every build.
 Freezing the sidecar (PyInstaller, Nuitka, or similar) redistributes every
 dependency, and each one's notice then has to be included:
 
-| Package | Licence |
+| Package | License |
 |---|---|
 | PyTorch | BSD 3-Clause |
 | transformers | Apache 2.0 |
@@ -56,11 +56,11 @@ this table for a shipped build, because it will drift.
 
 TokenCollider reads whichever encoder a profile points at from local disk
 (for the built-in profiles, Qwen3-VL-4B for Krea 2 or Qwen3-4B for Z-Image). It never copies or redistributes them, so their terms do not attach to
-this project. Users obtain the weights themselves under whatever licence the
+this project. Users obtain the weights themselves under whatever license the
 publisher offers.
 
 If you ever ship a build that downloads weights automatically, that is
-distribution and the model licence applies. Right now nothing is downloaded:
+distribution and the model license applies. Right now nothing is downloaded:
 the loader is offline by construction.
 
 Credit them anyway, in the README, because it is accurate and courteous:
@@ -69,7 +69,7 @@ respective authors' work.
 
 ## ComfyUI is GPL-3.0, and this project stays clear of it
 
-Worth stating precisely, because it is the one licence here that could reach
+Worth stating precisely, because it is the one license here that could reach
 into your code.
 
 `comfyui_node/nodes.py` imports only the Python standard library,
@@ -103,6 +103,6 @@ is courtesy.
   hidden states this tool explores.
 - **Krea 2** and **Z-Image**. The diffusion models the exports condition.
 - **[Oklab](https://bottosson.github.io/posts/oklab/)** by Björn Ottosson. The
-  perceptual colour space the viewport colours points in; its matrices are in
+  perceptual color space the viewport colors points in; its matrices are in
   `tokencollider/oklab.py` and `frontend/lib/Oklab.gd`.
 - PyTorch, transformers, safetensors, numpy, Pillow, PyYAML.

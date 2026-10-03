@@ -24,7 +24,7 @@ frontend/
     MenuOverlay.gd   routes between the three screens; M toggles it
     MainMenu.tscn    navigation only; emits what the user asked for
     SettingsPanel.tscn  reads and writes Config, owns no state
-    CreditsPanel.tscn   project credits + the engine's licence notice
+    CreditsPanel.tscn   project credits + the engine's license notice
   tests/             run_tests.gd plus one suite per module
 ```
 

@@ -375,7 +375,7 @@ def test_template_boundary(config_dir):
 
     `Embedder.template_prefix_tokens` counts the template's prefix ONCE and
     trims that many tokens off every export. That is right only while the
-    phrase cannot change how the prefix tokenises. A special token precedes
+    phrase cannot change how the prefix tokenizes. A special token precedes
     the slot, so it should not, but "should not" is what a test is for: a
     merge across the boundary would silently shift every export by a token and
     nothing downstream would notice.

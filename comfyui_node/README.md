@@ -36,7 +36,7 @@ describes:
    keeps it up to date with the repo.
 2. Restart ComfyUI. The nodes appear under the `tokencollider` category.
 
-## Licence
+## License
 
 MIT, Copyright (c) 2026 Syncretic Games LLC. This package imports no ComfyUI
 code, so it is not a derivative work of ComfyUI (GPL-3.0).

@@ -36,7 +36,7 @@ These are the terms. They appear in code, filenames, and node widgets.
 | **inserter** | the layer the blend is placed at (`hi`, the band's high edge) |
 | **export** | the file: every layer the sampler reads, written as one safetensors |
 | **window** | the sigma range an export is active over, widened by **overlap** |
-| **volume** | how hard an export pulls on the image (`repeat` on a model that normalises its context, such as Z-Image) |
+| **volume** | how hard an export pulls on the image (`repeat` on a model that normalizes its context, such as Z-Image) |
 | **CFG** | how far past the charted reading the sampler pushes |
 | **concat** | caption tokens and export tokens in one sequence, each keeping its own positions |
 | **image embeddings** / **text embeddings** | the two kinds of landmark a blend mixes within but never across |

@@ -373,11 +373,11 @@ def test_http_server():
     assert any(not np.allclose(pos[k], neg[k]) for k in pos), "mirror equals positive"
     Path(pair["path"]).unlink()
     Path(pair["mirror"]["path"]).unlink()
-    # ...but the centre is its own reflection: refused, and nothing written
+    # ...but the center is its own reflection: refused, and nothing written
     before = set(Path(tmp_root).iterdir())
     status, err = call("POST", "/export",
                        {"coords": entry["coords"], "mirror": True, "center": True})
-    assert status == 400 and "centre" in err["error"], (status, err)
+    assert status == 400 and "center" in err["error"], (status, err)
     assert set(Path(tmp_root).iterdir()) == before, "a half of the pair was written"
 
     # universe snapshot: named file, header + phrase-per-line, name sanitized
@@ -506,15 +506,15 @@ def test_http_server():
         assert np.allclose(world_coords[w], atlas_coords[w], atol=1e-5), w
     # Header: the world is the atlas, the parent's axes are recorded.
     assert col["layout"]["center"]["coords"][:3] != [0.0, 0.0, 0.0]
-    # Local axes are a different chart of the same landmarks, centred.
+    # Local axes are a different chart of the same landmarks, centered.
     status, lay_l = call("GET", "/layout?axes=local")
     assert lay_l["axes"] == "local" and lay_l["has_world"] is True
     assert lay_l["center"]["coords"][:3] == [0.0, 0.0, 0.0]
     local_coords = {e["text"]: e["coords"] for e in lay_l["landmarks"]}
     assert not np.allclose(local_coords[col["natives"][0]],
                            world_coords[col["natives"][0]])
-    # The centre cursor names the landmark mean itself, so its blend is the
-    # uniform recipe in either chart. Lifting the centre's world-axes
+    # The center cursor names the landmark mean itself, so its blend is the
+    # uniform recipe in either chart. Lifting the center's world-axes
     # coords instead would give the mean's projection onto the atlas's six
     # directions, a different point, which is why "center" is a flag.
     n_child = lay_w["n_landmarks"]
@@ -730,7 +730,7 @@ def test_ragged_phrases_blend_tail_to_tail():
 
 def test_knn_radius_skips_self_on_float32():
     """Cached vectors are float32. A point's distance to itself must still
-    read as zero, or it counts as its own neighbour and every density digit
+    read as zero, or it counts as its own neighbor and every density digit
     shifts by one rank."""
     from tokencollider.layout import knn_radius
     rng = np.random.default_rng(3)

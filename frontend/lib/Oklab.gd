@@ -1,17 +1,17 @@
 extends RefCounted
-## sRGB <-> Oklab, and the z-score mapping the sidecar colours points with.
+## sRGB <-> Oklab, and the z-score mapping the sidecar colors points with.
 ##
-## Oklab is Björn Ottosson's colour space, and the matrices here are his, from
+## Oklab is Björn Ottosson's color space, and the matrices here are his, from
 ## https://bottosson.github.io/posts/oklab/ (the same reference oklab.py cites).
 ##
 ## Mirrors `tokencollider/oklab.py`, which must produce the same numbers or a picked
-## colour and the point it selects drift apart, invisibly, until an export
+## color and the point it selects drift apart, invisibly, until an export
 ## lands somewhere the user did not aim.
 ##
 ## The two are NOT plain inverses, deliberately. `hex_to_zscores` is the
 ## inverse of `zscores_to_hex` only WITHIN GAMUT: the corners of the z-cube
 ## fall outside sRGB and clip on the way out. And Python returns raw z on the
-## way back while this clamps to the displayable range, because a colour the
+## way back while this clamps to the displayable range, because a color the
 ## sidecar could never paint should still select the nearest point it can.
 ## `tests/test_oklab.gd` checks agreement against a fixture the Python
 ## generates, which is the only comparison that tests one contract.
@@ -52,7 +52,7 @@ static func srgb_to_oklab(c: Color) -> Vector3:
 
 static func color_to_zscores(c: Color) -> Vector3:
 	## Clamped to the same +/-Z_CLAMP the sidecar renders with, so the picked
-	## colour and the selected point can never disagree.
+	## color and the selected point can never disagree.
 	var lab := srgb_to_oklab(c)
 	return Vector3(
 		clampf((lab.x - L_CENTER) / L_SPAN * Z_CLAMP, -Z_CLAMP, Z_CLAMP),

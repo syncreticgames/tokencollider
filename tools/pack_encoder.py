@@ -21,7 +21,7 @@ directory), so this is only for ComfyUI. What it does, and why:
   `--vision-from`, which may be the stock ComfyUI encoder file. The vision
   tower is frozen during a text finetune, so the base's is the right one.
 
-Refuses to write a file that would not be recognised: 36 text layers, the
+Refuses to write a file that would not be recognized: 36 text layers, the
 embedding table, the final norm, and the vision tower all have to be there.
 """
 
@@ -159,7 +159,7 @@ def pack(source: Path, out: Path, vision_from: Path | None = None) -> dict:
         if vision_from is None:
             raise SystemExit(
                 f"{source} carries no vision tower (model.visual.*), and ComfyUI "
-                "recognises Qwen3-VL by it; --vision-from names a checkpoint "
+                "recognizes Qwen3-VL by it; --vision-from names a checkpoint "
                 "to take one from.")
         vision, _, _ = read_tensors(shard_files(vision_from), keep=is_vision)
         if not vision:

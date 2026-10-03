@@ -33,7 +33,7 @@ two the tool has been run against:
   well as text.
 
 A *universe* is a list of phrases that defines a local metric. Its embeddings
-are centred on their mean, which removes whatever all members share. The top
+are centered on their mean, which removes whatever all members share. The top
 principal components are the directions the universe actually varies along,
 and similarity is measured inside that subspace. So a question like "is an
 otter closer to a fox than to a heron?" has two answers:
@@ -130,7 +130,7 @@ Further reading:
 - [docs/security.md](docs/security.md): what the sidecar exposes and refuses.
 - [docs/export-format.md](docs/export-format.md): the export file format, for
   programs that read or write it.
-- [docs/credits.md](docs/credits.md): licences and what each dependency asks.
+- [docs/credits.md](docs/credits.md): licenses and what each dependency asks.
 
 ## Built on
 
@@ -151,6 +151,6 @@ Further reading:
   **[numpy](https://numpy.org)**, **[Pillow](https://python-pillow.org)** and
   **[PyYAML](https://pyyaml.org)**.
 
-## Licence
+## License
 
 MIT. See [LICENSE](LICENSE).

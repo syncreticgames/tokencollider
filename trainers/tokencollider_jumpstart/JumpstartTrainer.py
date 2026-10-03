@@ -3,7 +3,7 @@
 The idea: an export is extra context tokens, and the DiT already renders the
 concept when they are present. Nothing maps those tokens onto weights in
 closed form (extra context changes every token's attention), but the
-mapping can be learned from the model's own behaviour:
+mapping can be learned from the model's own behavior:
 
 - teacher: the base DiT, conditioned on `caption + export` (the anchored
   embedding the bridge wrote as a sidecar);
@@ -185,7 +185,7 @@ class JumpstartTrainer(trainer_base()):
             # Alternates, when the bridge wrote them: one anchor per step
             # instead of one anchor for the whole run. A LoRA distilled from a
             # single coordinate can only learn that coordinate; sampling from a
-            # neighbourhood teaches the concept's local manifold.
+            # neighborhood teaches the concept's local manifold.
             if base not in self._alt_cache:
                 self._alt_cache[base] = alternate_paths_for(base)
             alts = self._alt_cache[base]

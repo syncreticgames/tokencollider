@@ -114,7 +114,7 @@ def bend(target: np.ndarray, directions, amounts, origin=None) -> np.ndarray:
 
     `origin` is where the directions are measured from, and it must be the
     same place they were built from. A group's direction is its centroid minus
-    the universe mean, so bending has to happen in mean-centred space too;
+    the universe mean, so bending has to happen in mean-centered space too;
     doing it on the raw vector removes the mean's own component along the
     direction as well and overshoots past zero into a sign flip.
     """

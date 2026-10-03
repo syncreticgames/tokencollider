@@ -76,7 +76,7 @@ func make_image_sprite(url: String, size: float) -> MeshInstance3D:
 	return shape
 
 func load_image_texture(shape: MeshInstance3D, url: String) -> void:
-	## The picture stays grey if the thumbnail can't be had; the fetcher has
+	## The picture stays gray if the thumbnail can't be had; the fetcher has
 	## already said why.
 	var data = await fetch_bytes.call(url)
 	if data == null or not is_instance_valid(shape):
@@ -108,7 +108,7 @@ func make_landmark(text: String, source: String = "preload", density: int = -1, 
 	var tag := Label3D.new()
 	tag.name = "Tag"
 	tag.text = str(entry.get("label", text))
-	# Above the picture (1.6 tall, centred, so its top is at 0.8), or just
+	# Above the picture (1.6 tall, centered, so its top is at 0.8), or just
 	# above a node sprite.
 	tag.position.y = 1.0 if is_image else 0.7
 	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED

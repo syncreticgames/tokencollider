@@ -331,7 +331,7 @@ def test_pack_encoder():
     """HF shards of a Qwen3-VL-4B finetune become one ComfyUI-layout file:
     text keys flattened, lm_head dropped, bf16, vision tower present (spliced
     from the base when the finetune is text-only), and a file ComfyUI would
-    not recognise is refused."""
+    not recognize is refused."""
     import importlib.util
     import json
 

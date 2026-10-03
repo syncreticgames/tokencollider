@@ -68,7 +68,7 @@ concatenating along the token axis, layer by layer:
    after. Layer `i` of the result is the caption's layer `i` followed by the
    export's layer `i`.
 
-The export's layer indices are re-labelled to the caption's rather than read
+The export's layer indices are re-labeled to the caption's rather than read
 from its metadata, since both come from one profile by construction. A reader
 doing this pairing with an export from a different profile gets a tensor no
 sampler could produce.

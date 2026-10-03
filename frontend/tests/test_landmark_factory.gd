@@ -12,7 +12,7 @@ func _factory():
 	return f
 
 func test_image_label_sits_above_the_picture() -> void:
-	## The picture is 1.6 tall and centred, so its top is at 0.8. The label's
+	## The picture is 1.6 tall and centered, so its top is at 0.8. The label's
 	## image height used to be overwritten by the node one, putting it on top
 	## of the picture.
 	var f = _factory()

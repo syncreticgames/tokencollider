@@ -202,8 +202,8 @@ def write_cache(dataset: Path, embedder, anchors: list[Path], arch: str,
     space, and a LoRA distilled from one point can only ever learn one point.
     With `alternates` each anchor gets its own numbered teacher sidecar and the
     trainer samples one per step, so the LoRA learns the concept's local
-    manifold instead of its centre. Feed it a cook stack or a handful of
-    neighbours from the same chart.
+    manifold instead of its center. Feed it a cook stack or a handful of
+    neighbors from the same chart.
 
     It also writes the DROPOUT pair, because
     caption dropout does work with a cached text encoder and takes a separate

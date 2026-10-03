@@ -1,5 +1,5 @@
 extends Control
-## Credits, and the engine's licence obligation discharged in code.
+## Credits, and the engine's license obligation discharged in code.
 ##
 ## Godot is MIT, and an exported binary EMBEDS the engine, so its copyright
 ## notice has to ship with the build. Godot hands you the whole thing at
@@ -21,10 +21,10 @@ MIT licensed. Copyright (c) 2026 Syncretic Games LLC.
 • ai-toolkit by Ostris (MIT) — trains the LoRAs
 • Qwen3-VL-4B / Qwen3-4B by Alibaba — the text encoders
 • Krea 2, Z-Image — the diffusion models
-• Oklab by Björn Ottosson — the colour space points are drawn in
+• Oklab by Björn Ottosson — the color space points are drawn in
 • PyTorch, transformers, safetensors, numpy, Pillow, PyYAML
 
-Full licence notes: docs/credits.md
+Full license notes: docs/credits.md
 """
 
 

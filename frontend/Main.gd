@@ -13,8 +13,8 @@ extends Node3D
 
 ## The on-screen key help. The panel is a fixed height and clips silently, so
 ## the line count matters: see where it is applied in _ready. M must stay
-## listed, since the menu is the only way to Credits and Godot's licence notice.
-const KEY_HELP := "[b]TokenCollider[/b]\nTab: word box, Enter: back to flight\nF: search + fly to a landmark\nWASD + right-mouse: fly (Q/E, Shift)\nmousewheel: fly speed\nleft/right: step one layer\nbottom sliders: layer range\nC: drop cursor    I: interrogate\nShift+I: realize ghosts as landmarks\nG: colonize   L: world/local axes\nO: centre cursor   @path / drop: images\nX: export stack   Shift+X: single\nCtrl+X: full sweep\nleft-drag: box select   Del: delete\nT: trails  N: norm/abs  R: refresh\nU: snapshot   V: release GPU\ncolor swatch: cursor dims 4-6\nEsc: clear  M: menu  Ctrl+Q: quit"
+## listed, since the menu is the only way to Credits and Godot's license notice.
+const KEY_HELP := "[b]TokenCollider[/b]\nTab: word box, Enter: back to flight\nF: search + fly to a landmark\nWASD + right-mouse: fly (Q/E, Shift)\nmousewheel: fly speed\nleft/right: step one layer\nbottom sliders: layer range\nC: drop cursor    I: interrogate\nShift+I: realize ghosts as landmarks\nG: colonize   L: world/local axes\nO: center cursor   @path / drop: images\nX: export stack   Shift+X: single\nCtrl+X: full sweep\nleft-drag: box select   Del: delete\nT: trails  N: norm/abs  R: refresh\nU: snapshot   V: release GPU\ncolor swatch: cursor dims 4-6\nEsc: clear  M: menu  Ctrl+Q: quit"
 
 const Matcher := preload("res://lib/Matcher.gd")
 const Oklab := preload("res://lib/Oklab.gd")
@@ -39,7 +39,7 @@ var color_timer: Timer = null  # debounce: re-solve masses after recoloring
 var sampler_layer := -1  # cook stop: the deepest sampler tap; a view topping out below it cooks on export
 var scrubbing := false
 var has_world := false  # the sidecar knows an atlas this neighborhood was carved from
-var last_center = null  # this neighborhood's centre in the current axes: {coords, color}
+var last_center = null  # this neighborhood's center in the current axes: {coords, color}
 var cursor_at_center := false  # the cursor IS the landmark mean (O), not a lifted 6D point
 # Normalized by default: dense universes open up instead of funneling out of
 # the origin. N toggles to absolute; restored sessions bring their own mode.
@@ -525,7 +525,7 @@ func _apply_layout(layout: Dictionary) -> void:
 		if selected.has(entry["text"]):
 			color = Color.WHITE
 		if node.get_meta("image", false):
-			# A picture keeps its own colours; its semantic colour goes to
+			# A picture keeps its own colors; its semantic color goes to
 			# the tag, and selection brightens the picture instead of
 			# painting it.
 			(node.get_node("Shape") as MeshInstance3D).material_override.albedo_color = \
@@ -757,17 +757,17 @@ func _drop_cursor() -> void:
 	_update_mass_view()
 
 func _drop_cursor_at_center() -> void:
-	## The neighborhood's centre, the mean of its landmarks: the origin in
+	## The neighborhood's center, the mean of its landmarks: the origin in
 	## local axes, a specific point in world axes. The same phrases under
-	## two models give two centres that name the same concept, which is the
+	## two models give two centers that name the same concept, which is the
 	## one cursor a finetune and its base can be compared from.
 	if last_center == null:
-		status_label.text = "no centre yet (need at least two landmarks)"
+		status_label.text = "no center yet (need at least two landmarks)"
 		return
 	var c: Array = last_center["coords"]
 	if cursor == null:
 		cursor = _make_cursor()
-	# Dims 4-6 ride in the swatch, so set it to the centre's colour; the
+	# Dims 4-6 ride in the swatch, so set it to the center's color; the
 	# picker's signal recolours the cursor and reports the z-scores.
 	color_picker.color = Color.html(str(last_center["color"]))
 	(cursor.get_node("Shape") as MeshInstance3D).material_override.albedo_color = color_picker.color
@@ -778,7 +778,7 @@ func _drop_cursor_at_center() -> void:
 	# is told to use the mean itself, since in world axes the projection
 	# drops the part of the mean outside the atlas's six directions.
 	cursor_at_center = true
-	status_label.text = "cursor at the neighborhood centre (%s axes) — I to interrogate, X to export" % _axes_value()
+	status_label.text = "cursor at the neighborhood center (%s axes) — I to interrogate, X to export" % _axes_value()
 	_update_mass_view()
 
 # --- stellar mass + gravity tethers: the blend made visible ----------------
@@ -921,7 +921,7 @@ func _colonize() -> void:
 		_apply_layout(res["layout"])
 	if cursor != null:
 		_update_mass_view()
-	status_label.text = "colonized: %d natives + %d settlements -> %s  (world axes; L toggles, O centres the cursor)" % [
+	status_label.text = "colonized: %d natives + %d settlements -> %s  (world axes; L toggles, O centers the cursor)" % [
 		res["natives"].size(), res["manual"].size(), res["path"]]
 
 const DELETE_HIT_RADIUS_PX := 40.0

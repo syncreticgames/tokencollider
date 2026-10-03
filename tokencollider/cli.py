@@ -291,7 +291,7 @@ def describe(embedder, profile, sources: dict, bounds=(None, None)) -> None:
           f"(scaffold tokens dropped from exports)")
     print(f"[tokencollider]   template  {embedder.template!r}  ({sources['template']})")
     print(f"[tokencollider]   images    pooled over the {embedder.image_pooling} tokens; "
-          f"centre-cropped to {int(images_max_edge())} px square")
+          f"center-cropped to {int(images_max_edge())} px square")
 
 
 def add_common_options(parser, suppress: bool = False) -> None:

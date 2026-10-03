@@ -25,7 +25,7 @@ universes/session_*.txt
 universes/saved/
 *.log
 
-# Python build artefacts.
+# Python build artifacts.
 build/
 dist/
 *.egg-info/

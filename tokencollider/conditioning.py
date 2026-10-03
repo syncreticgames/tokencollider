@@ -46,7 +46,7 @@ def blend_tokens(tensors: list[np.ndarray], weights,
     of the sphere the real states live on, and a short vector there is
     improbable under the model's own distribution. The interpolation
     literature calls this norm collapse and answers it with slerp, which does
-    not generalise cleanly to N landmarks with signed least-squares weights;
+    not generalize cleanly to N landmarks with signed least-squares weights;
     rescaling to the weighted mean norm does, keeps the direction the solve
     chose, and restores only the magnitude.
 

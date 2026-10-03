@@ -79,10 +79,10 @@ class LoadConditioningSafetensors:
                 "path": ("STRING", {"default": "", "multiline": False}),
                 # Strength for ConcatConditioning workflows. Z-Image's DiT
                 # RMSNorms every context token (cap_embedder), so scalar
-                # multiplies are cancelled — attention influence scales with
+                # multiplies are canceled — attention influence scales with
                 # the NUMBER of tokens instead. repeat tiles the export's
                 # tokens along the sequence. (Krea 2's text-fusion blocks are
-                # residual, so a multiply is NOT cancelled there; repeat
+                # residual, so a multiply is NOT canceled there; repeat
                 # still works, but it is not the only knob. Unmeasured.)
                 "repeat": ("INT", {"default": 1, "min": 1, "max": 64}),
                 # -1 = fuse every layer of a multi-layer export into the

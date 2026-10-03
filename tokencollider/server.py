@@ -33,7 +33,7 @@ range averaged in pooled space ("0-6" in a query, [0, 6] in a JSON body).
 An "axes" value (query or body) of "world" reads and writes coordinates in
 the parent atlas's chart instead of this stack's own; layouts report which
 chart they are in ("axes"), whether a world exists ("has_world"), and the
-neighborhood's centre in that chart ("center": coords + color, the origin
+neighborhood's center in that chart ("center": coords + color, the origin
 in local axes). A body with "center": true names the landmark mean itself
 as the target, whatever "coords" says: a chart's six numbers only reach its
 own subspace, and the mean of this neighborhood lies in no other chart's.
@@ -229,7 +229,7 @@ def parse_axes(val) -> str:
 
 
 def _center_target(stack: LayerStack, layer, center) -> "np.ndarray | None":
-    """The exact landmark mean when the cursor is the neighborhood centre;
+    """The exact landmark mean when the cursor is the neighborhood center;
     None otherwise, so coords are lifted through the chart as usual."""
     return stack.session(layer).mean if center else None
 
@@ -527,7 +527,7 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
         basis = stack.basis(layer, axes)
         payload = session.layout(basis)
         # Which chart the coords are in, whether a world exists to switch
-        # to, and where this neighborhood's centre sits in that chart.
+        # to, and where this neighborhood's center sits in that chart.
         payload["axes"] = "world" if basis is not None else "local"
         payload["has_world"] = stack.has_world()
         payload["world_path"] = stack.world_path()
@@ -653,7 +653,7 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
             in parallel, and the layout's arrays (phrases, vectors, the PCA
             basis) are updated in several steps, so a concurrent read saw
             them out of step; the embedder's lazy model load could also run
-            twice on a cold start. There is one GPU, so serialising costs
+            twice on a cold start. There is one GPU, so serializing costs
             nothing real."""
             try:
                 with lock:
@@ -734,7 +734,7 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
         def _post(self, body: dict) -> None:
             layer = parse_layer(body.get("layer"))
             axes = parse_axes(body.get("axes"))
-            # The centre cursor names the landmark mean exactly, not its
+            # The center cursor names the landmark mean exactly, not its
             # six-number shadow in whichever chart is showing.
             center = bool(body.get("center", False))
             if self.path == "/landmarks":
@@ -785,11 +785,11 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
             elif self.path == "/export":
                 if center and body.get("mirror"):
                     # The mirror reflects through the chart origin, which IS
-                    # the landmark mean, so the centre is its own reflection:
+                    # the landmark mean, so the center is its own reflection:
                     # both halves would be one tensor and CFG would have no
                     # difference to push along. Refuse before writing either.
                     raise ValueError(
-                        "mirror needs a cursor away from the centre: the centre "
+                        "mirror needs a cursor away from the center: the center "
                         "is its own reflection, so the pair would be identical")
                 band = (layer, layer) if isinstance(layer, int) else layer
                 if body.get("inserter") is not None:
@@ -879,7 +879,7 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
                 if body.get("mirror"):
                     # Polarity guidance. The cursor reflected through the
                     # chart centroid (coords origin IS the universe mean,
-                    # PCA being mean-centred) is the negative half of a
+                    # PCA being mean-centered) is the negative half of a
                     # pair. CFG's guidance vector is the difference between
                     # the two predictions, so with both endpoints on one
                     # axis it pushes along that axis alone and the guidance

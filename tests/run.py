@@ -142,7 +142,7 @@ def run_suite() -> tuple[bool, dict]:
 
 def metrics() -> dict:
     """Deterministic probes over planted geometry. Every number here has a
-    reason to move only when behaviour changes."""
+    reason to move only when behavior changes."""
     import numpy as np
 
     from tokencollider.layout import LayoutSession

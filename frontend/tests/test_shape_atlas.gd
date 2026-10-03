@@ -21,9 +21,9 @@ func test_texture_is_cached_by_kind_and_digit() -> void:
 func test_shape_predicate_bounds() -> void:
 	## The predicate is the whole definition of a shape, so pin its edges.
 	var half := 64.0
-	harness.ok(ShapeAtlas.shape_inside("circle", Vector2.ZERO, half, 128, 64), "circle centre inside")
+	harness.ok(ShapeAtlas.shape_inside("circle", Vector2.ZERO, half, 128, 64), "circle center inside")
 	harness.ok(not ShapeAtlas.shape_inside("circle", Vector2(70, 0), half, 128, 64), "outside radius")
-	harness.ok(ShapeAtlas.shape_inside("square", Vector2(10, 10), half, 128, 64), "square centre")
+	harness.ok(ShapeAtlas.shape_inside("square", Vector2(10, 10), half, 128, 64), "square center")
 	harness.ok(not ShapeAtlas.shape_inside("square", Vector2(60, 60), half, 128, 64), "square corner out")
 	harness.ok(not ShapeAtlas.shape_inside("nonsense", Vector2.ZERO, half, 128, 64), "unknown kind is empty")
 

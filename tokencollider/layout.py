@@ -24,19 +24,19 @@ MAX_AXES = 6
 
 
 def knn_radius(block: np.ndarray, corpus: np.ndarray, k: int) -> np.ndarray:
-    """Distance from each row of `block` to its k-th nearest neighbour in
+    """Distance from each row of `block` to its k-th nearest neighbor in
     `corpus`, skipping the row itself where it is a corpus member.
 
     Uses the |a|^2 - 2ab + |b|^2 identity. The subtract-then-norm form
     materializes an (n, m, dim) tensor — 38GB at the 2000-phrase boundary,
     which thrashed the box instead of raising. Computed in float64: in
     float32 a point's distance to itself comes out well above the self-skip
-    threshold, so it was counted as its own neighbour."""
+    threshold, so it was counted as its own neighbor."""
     block = np.asarray(block, dtype=np.float64)
     corpus = np.asarray(corpus, dtype=np.float64)
     if len(corpus) == 0:
         return np.full(len(block), np.nan)
-    # A corpus smaller than k + 1 rows has no k-th neighbour past the point
+    # A corpus smaller than k + 1 rows has no k-th neighbor past the point
     # itself: partition only as deep as the corpus goes, and take the
     # farthest there is rather than index out of range.
     kth = min(int(k), len(corpus) - 1)
@@ -235,7 +235,7 @@ class LayoutSession:
         }
 
     def centroid(self, basis=None) -> dict | None:
-        """The neighborhood's centre, the mean of its landmarks, as a
+        """The neighborhood's center, the mean of its landmarks, as a
         viewport point in the given basis. In its own basis that is the
         origin by construction; in a parent's it is where this neighborhood
         sits in the atlas. The one point two models can be compared at."""
@@ -248,7 +248,7 @@ class LayoutSession:
                 "color": zscores_to_hex(z[3], z[4], z[5])}
 
     # `target`, where accepted, is a full-dimensional embedding that stands
-    # in for the 6D coords: the neighborhood centre is exactly the landmark
+    # in for the 6D coords: the neighborhood center is exactly the landmark
     # mean, which no chart but its own can name in six numbers (a coordinate
     # only reaches the chart's subspace; the mean's residual is lost). The
     # marker still sits at the projection, as every landmark's does.
@@ -298,8 +298,8 @@ class LayoutSession:
         idx = [self.phrases.index(p) for p in phrases if p in self.phrases]
         if not idx:
             raise ValueError(f"no landmarks named in {list(phrases)!r}")
-        centre = self.vectors[idx].mean(axis=0)
-        return centre - (self.mean if self.mean is not None else 0.0)
+        center = self.vectors[idx].mean(axis=0)
+        return center - (self.mean if self.mean is not None else 0.0)
 
     def blend_weights(self, coords, basis=None, target=None,
                       positive=None, negative=None, bends=None,

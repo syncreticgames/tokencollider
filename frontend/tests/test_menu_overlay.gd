@@ -52,7 +52,7 @@ func test_settings_receives_the_config_object() -> void:
 	o.free()
 
 func test_key_help_lists_the_menu() -> void:
-	## The menu is the only way to Credits, which carries Godot's licence
+	## The menu is the only way to Credits, which carries Godot's license
 	## notice for the shipped web build, so the help must say how to open it.
 	## The help panel clips past its fixed height: hold the line count.
 	var help: String = preload("res://Main.gd").KEY_HELP

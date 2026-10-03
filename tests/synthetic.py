@@ -133,11 +133,11 @@ def test_a_signed_solve_could_express_opposition():
     e = SyntheticEmbedder({"hot": HOT, "cold": COLD, "tool": TOOL},
                           opposites=[("hot", "cold")])
     peak = e.peak_layer()
-    centre = {g: np.mean([e.embed_layer(p, peak) for p in ps], axis=0)
+    center = {g: np.mean([e.embed_layer(p, peak) for p in ps], axis=0)
               for g, ps in (("hot", HOT), ("cold", COLD), ("tool", TOOL))}
     axis = e.axis_of("hot")
     proj = {g: float(v @ axis / (np.linalg.norm(axis) ** 2))
-            for g, v in centre.items()}
+            for g, v in center.items()}
     assert proj["hot"] > 0 > proj["cold"], proj
     assert abs(proj["tool"]) < 0.5 * min(abs(proj["hot"]), abs(proj["cold"])), proj
     print(f"ok: the opposition survives in the geometry "
@@ -175,7 +175,7 @@ def test_modalities_peak_at_different_layers():
     # And no layer is best for both at once.
     best_text = max(range(1, 36), key=lambda l: tightness(words, l))
     best_pics = max(range(1, 36), key=lambda l: tightness(pics, l))
-    # Both peaks must land near what was planted, not at a low-layer artefact.
+    # Both peaks must land near what was planted, not at a low-layer artifact.
     assert abs(best_text - 18) <= 2 and abs(best_pics - 28) <= 2, (best_text, best_pics)
     assert best_text != best_pics, (best_text, best_pics)
     print(f"ok: text peaks at {best_text}, pictures at {best_pics}; "
@@ -224,7 +224,7 @@ def test_signed_solve_makes_one_neighborhood_negative():
     - poles + strict: tool is held at +0.000 and cold is the only subtractor,
       at an error of 0.164.
 
-    So a negative neighborhood is not a labelling of what the solve already
+    So a negative neighborhood is not a labeling of what the solve already
     did. It is a constraint that has to exclude everyone else, and it costs
     accuracy, which is the honest trade and is reported.
     """
@@ -304,9 +304,9 @@ def test_bending_erases_an_association_and_can_amplify_it():
     def parts(amount):
         t = target if amount is None else bend(
             target, [s.direction(TOOL)], [amount], origin=s.mean)
-        centred = t - s.mean
-        along = float(centred @ u)
-        return along, centred - along * u
+        centered = t - s.mean
+        along = float(centered @ u)
+        return along, centered - along * u
 
     base_t, base_orth = parts(None)
     er_t, er_orth = parts(1.0)
