@@ -67,8 +67,7 @@ func _ready() -> void:
 	factory = preload("res://viewport/LandmarkFactory.gd").new()
 	factory.name = "LandmarkFactory"
 	factory.shapes = shapes
-	factory.base_url_provider = func() -> String: return sidecar.base_url()
-	factory.headers_provider = func() -> PackedStringArray: return sidecar.auth_headers()
+	factory.fetch_bytes = func(path: String): return await sidecar.request_bytes(path)
 	add_child(factory)
 
 	# The shared seam. Components read state from it and emit intent back;
@@ -104,6 +103,7 @@ func _ready() -> void:
 	# reaches in to do that itself.
 	menu.resumed.connect(func(): status_label.text = "resumed")
 	add_child(menu)
+	camera.blocked = func() -> bool: return menu.is_open()
 
 	mass = preload("res://viewport/MassView.gd").new()
 	mass.name = "MassView"
@@ -376,6 +376,18 @@ func _scrub() -> void:
 		status_label.text = "layers %s ready" % fetched
 	scrubbing = false
 
+static func configure_range(r: Range, lo: float, hi: float, value: float) -> void:
+	## Bounds and value together, silently. Seeding the value first let the
+	## scene's old max (36) clamp it on a deeper model; setting bounds first
+	## let a clamp emit value_changed and fire a scrub mid-setup. Signals are
+	## off for both, so neither happens.
+	r.set_block_signals(true)
+	r.min_value = minf(lo, r.min_value)
+	r.max_value = hi
+	r.min_value = lo
+	r.value = value
+	r.set_block_signals(false)
+
 func _configure_slider(layout: Dictionary, view = null) -> void:
 	if layer_slider.visible or layout.get("n_layers") == null:
 		return
@@ -413,15 +425,8 @@ func _configure_slider(layout: Dictionary, view = null) -> void:
 		# A restored session's selection beats every default.
 		view_state.layer_lo = clampi(int(view["layer_lo"]), lo_bound, hi_bound)
 		view_state.layer_hi = clampi(int(view["layer_hi"]), view_state.layer_lo, hi_bound)
-	# Seed values BEFORE tightening bounds: raising min_value above the
-	# current value clamps it and emits value_changed, which would fire a
-	# scrub while layer_lo/hi are still the -1 sentinels.
-	layer_slider.set_value_no_signal(view_state.layer_hi)
-	layer_slider_lo.set_value_no_signal(view_state.layer_lo)
-	layer_slider.min_value = lo_bound
-	layer_slider.max_value = hi_bound
-	layer_slider_lo.min_value = lo_bound
-	layer_slider_lo.max_value = hi_bound
+	configure_range(layer_slider, lo_bound, hi_bound, view_state.layer_hi)
+	configure_range(layer_slider_lo, lo_bound, hi_bound, view_state.layer_lo)
 	_update_layer_label()
 	layer_slider.visible = true
 	layer_slider_lo.visible = true

@@ -84,3 +84,21 @@ func test_matches_layout_axes() -> void:
 		"local reply while an atlas exists was sent before the switch")
 	harness.ok(not _at(20, 20, false).matches_layout({"layer": 20, "axes": "world", "has_world": true}),
 		"world reply for a local view is stale")
+
+func test_layer_slider_takes_layers_past_the_scene_default() -> void:
+	## The scene's slider tops out at 36. A deeper encoder (or a band whose
+	## top is above it) must still land on the right layer, without the
+	## setup itself emitting a change that would fire a scrub.
+	var configure: Callable = preload("res://Main.gd").configure_range
+	var r := HSlider.new()
+	r.max_value = 36
+	var fired := [0]
+	r.value_changed.connect(func(_v): fired[0] += 1)
+	configure.call(r, 0, 47, 40)
+	harness.eq(r.value, 40.0, "value past the old max is kept")
+	harness.eq(r.max_value, 47.0, "max widened")
+	configure.call(r, 8, 20, 12)
+	harness.eq(r.value, 12.0, "narrowing keeps the given value")
+	harness.eq(r.min_value, 8.0, "min raised")
+	harness.eq(fired[0], 0, "setup emits no value_changed")
+	r.free()

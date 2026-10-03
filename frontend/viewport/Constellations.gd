@@ -14,6 +14,11 @@ signal trails_stale    ## the view changed; these trails no longer mean anything
 
 var ctx: RefCounted = null   ## viewport/Context.gd
 var _trails: Node3D = null
+## Whether the user wants trails, separate from whether they are drawn: a
+## trace takes a while, and T pressed during it must cancel, not start a
+## second draw or be overridden when the first one lands.
+var _wanted := false
+var _draw_seq := 0  # bumped by every draw and every cancel; a reply checks it
 
 
 func is_showing() -> bool:
@@ -23,6 +28,8 @@ func is_showing() -> bool:
 func clear() -> void:
 	## Drop trails outright rather than redrawing: a redraw would warm every
 	## landmark at every layer, and an old universe's trails are moot anyway.
+	_wanted = false
+	_draw_seq += 1  # a trace still in flight lands nowhere
 	if _trails != null:
 		_trails.queue_free()
 		_trails = null
@@ -30,17 +37,24 @@ func clear() -> void:
 
 
 func toggle() -> void:
-	if _trails != null:
-		_trails.queue_free()
-		_trails = null
+	if _wanted or _trails != null:
+		_wanted = false
+		_draw_seq += 1  # cancels a trace still in flight
+		if _trails != null:
+			_trails.queue_free()
+			_trails = null
 		ctx.report.call("constellation off")
 		return
+	_wanted = true
 	await draw()
 
 func draw() -> void:
+	_draw_seq += 1
+	var mine := _draw_seq
 	ctx.report.call("tracing constellation ...")
 	var res = await ctx.api.call("/trajectory")
-	if res == null:
+	# Turned off, or redrawn, while this was out: its trails aren't wanted.
+	if res == null or mine != _draw_seq or not _wanted:
 		return
 	if float(res["extent"]) > 0.0:
 		ctx.locked_scale = ctx.WORLD_TARGET / float(res["extent"])

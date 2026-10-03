@@ -2,14 +2,15 @@ extends Node
 ## Builds the things that appear in the world: node sprites, image sprites,
 ## density digits, and the landmark that carries them.
 ##
-## A Node rather than a plain object because loading a thumbnail needs an
-## HTTPRequest child. Everything it needs from outside is INJECTED (the shape
-## atlas, a way to build a sidecar URL), so it never reaches back into the
-## viewport for state, which is what made this code impossible to move before.
+## Everything it needs from outside is INJECTED (the shape atlas, a way to
+## fetch a thumbnail's bytes), so it never reaches back into the viewport for
+## state, which is what made this code impossible to move before. It knows no
+## URL and does no HTTP: lib/Sidecar.gd does.
 
 var shapes: RefCounted = null   ## lib/ShapeAtlas.gd
-var base_url_provider: Callable = func() -> String: return ""
-var headers_provider: Callable = func() -> PackedStringArray: return PackedStringArray()
+## path -> PackedByteArray, or null when the fetch failed (reported by whoever
+## does the fetching). Main wires it to Sidecar.request_bytes.
+var fetch_bytes: Callable = func(_path: String): return null
 
 
 func make_node_sprite(shape_kind: String, size: float) -> MeshInstance3D:
@@ -75,18 +76,13 @@ func make_image_sprite(url: String, size: float) -> MeshInstance3D:
 	return shape
 
 func load_image_texture(shape: MeshInstance3D, url: String) -> void:
-	var http := HTTPRequest.new()
-	http.timeout = 30.0  # a thumbnail; the picture just stays grey if it fails
-	add_child(http)
-	if http.request(base_url_provider.call() + url, headers_provider.call()) != OK:
-		http.queue_free()
-		return
-	var res: Array = await http.request_completed
-	http.queue_free()
-	if res[0] != HTTPRequest.RESULT_SUCCESS or res[1] != 200 or not is_instance_valid(shape):
+	## The picture stays grey if the thumbnail can't be had; the fetcher has
+	## already said why.
+	var data = await fetch_bytes.call(url)
+	if data == null or not is_instance_valid(shape):
 		return
 	var img := Image.new()
-	if img.load_jpg_from_buffer(res[3]) != OK:
+	if img.load_jpg_from_buffer(data) != OK:
 		return
 	var mat: StandardMaterial3D = shape.material_override
 	mat.albedo_texture = ImageTexture.create_from_image(img)
@@ -112,9 +108,9 @@ func make_landmark(text: String, source: String = "preload", density: int = -1, 
 	var tag := Label3D.new()
 	tag.name = "Tag"
 	tag.text = str(entry.get("label", text))
-	if is_image:
-		tag.position.y = 1.0
-	tag.position.y = 0.7
+	# Above the picture (1.6 tall, centred, so its top is at 0.8), or just
+	# above a node sprite. The image height used to be overwritten here.
+	tag.position.y = 1.0 if is_image else 0.7
 	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	tag.alpha_cut = Label3D.ALPHA_CUT_DISCARD  # opaque pass = real occlusion
 	tag.font_size = 48

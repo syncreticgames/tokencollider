@@ -65,6 +65,24 @@ static func timeout_for(path: String) -> float:
 	return TIMEOUT_EXPORT if path.begins_with("/export") else TIMEOUT_DEFAULT
 
 
+func request_bytes(path: String, timeout := 30.0) -> Variant:
+	## GET raw bytes (an image thumbnail). Returns them, or null after
+	## emitting the reason, the same way request() reports.
+	var http := HTTPRequest.new()
+	http.timeout = timeout
+	add_child(http)
+	if http.request(base_url() + path, auth_headers()) != OK:
+		http.queue_free()
+		request_failed.emit("couldn't start loading %s" % path)
+		return null
+	var res: Array = await http.request_completed
+	http.queue_free()
+	if res[0] != HTTPRequest.RESULT_SUCCESS or res[1] != 200:
+		request_failed.emit("couldn't load %s (result %d, status %d)" % [path, res[0], res[1]])
+		return null
+	return res[3]
+
+
 func request(path: String, body = null) -> Variant:
 	## GET when body is null, POST as JSON otherwise. Returns the parsed
 	## response, or null after emitting the reason.

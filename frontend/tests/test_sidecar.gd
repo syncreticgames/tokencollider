@@ -17,13 +17,18 @@ func test_base_url_from_host_and_port() -> void:
 	s.free()
 
 func test_failure_is_emitted_not_swallowed() -> void:
-	## Nothing is listening on this port, so the request must fail and the
-	## client must say so through its signal rather than to a Label it owns.
+	## A failed request must be ANNOUNCED through the signal, not dropped. A
+	## client outside the scene tree can't start an HTTPRequest, so request()
+	## takes its failure path straight away, which lets this run without a
+	## network or an await.
 	var s = Sidecar.new()
-	s.port = 1        # reserved, nothing will answer
 	var heard: Array[String] = []
 	s.request_failed.connect(func(what: String): heard.append(what))
-	harness.ok(s.request_failed.get_connections().size() == 1, "signal connectable")
+	s.request("/layout")
+	harness.eq(heard.size(), 1, "the failure was announced")
+	s.request_bytes("/image/abc")
+	harness.eq(heard.size(), 2, "a failed thumbnail is announced too")
+	harness.ok(heard[1].contains("/image/abc"), "and says which one")
 	harness.ok(not s.has_method("_set_status_label"), "client owns no UI")
 	s.free()
 

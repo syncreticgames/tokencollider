@@ -7,8 +7,16 @@ extends Camera3D
 @export var sensitivity := 0.003
 
 @onready var status: Label = get_node_or_null("../UI/Status")
+## True while something covers the viewport (Main wires it to the menu). The
+## camera reads the mouse in _input, ahead of the menu, so without this a
+## right-drag behind the open menu captured the mouse and WASD flew the camera.
+var blocked: Callable = func() -> bool: return false
 
 func _input(event: InputEvent) -> void:
+	if blocked.call():
+		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		return
 	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
 		if get_viewport().gui_get_focus_owner() != null:
 			return  # let a focused control keep its scroll
@@ -31,8 +39,8 @@ func _input(event: InputEvent) -> void:
 		rotation.z = 0.0
 
 func _process(delta: float) -> void:
-	if get_viewport().gui_get_focus_owner() != null:
-		return  # typing in the word box, don't fly
+	if blocked.call() or get_viewport().gui_get_focus_owner() != null:
+		return  # behind the menu, or typing in the word box: don't fly
 	var dir := Vector3.ZERO
 	if Input.is_key_pressed(KEY_W): dir -= global_transform.basis.z
 	if Input.is_key_pressed(KEY_S): dir += global_transform.basis.z
