@@ -29,3 +29,6 @@ dist/
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
+
+# The browser viewport, built by tools/export_web.sh (and by CI into the wheel).
+tokencollider/web/

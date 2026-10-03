@@ -14,12 +14,43 @@ extends Node
 signal request_failed(what: String)   ## human-readable, safe to show a user
 signal unreachable                    ## the sidecar is not answering at all
 
+const TOKEN_HEADER := "X-TokenCollider-Token"
+
 var host := "127.0.0.1"
 var port := 8765
+## The per-session token the sidecar requires on every API request (see
+## docs/security.md). `tokencollider view` hands it over out of band.
+var token := ""
 
 
 func base_url() -> String:
 	return "http://%s:%d" % [host, port]
+
+
+func auth_headers() -> PackedStringArray:
+	return PackedStringArray(["%s: %s" % [TOKEN_HEADER, token]])
+
+
+func apply_launch(env: Dictionary, page_url: String = "") -> void:
+	## Where `tokencollider view` says the sidecar is, overriding saved
+	## settings: that reflects reality, the settings are what the user last
+	## chose. In a browser the page came FROM the sidecar, so its own URL is
+	## the answer, with the token in the fragment. On desktop, the env.
+	if page_url != "":
+		var rest := page_url.split("://", true, 1)[1]
+		var authority := rest.split("/", true, 1)[0]
+		host = authority.split(":")[0]
+		var p := authority.split(":")
+		port = p[1].to_int() if p.size() > 1 else 80
+		var hash_at := page_url.find("#")
+		if hash_at >= 0:
+			for pair in page_url.substr(hash_at + 1).split("&"):
+				if pair.begins_with("token="):
+					token = pair.substr(6).uri_decode()
+		return
+	if str(env.get("TOKENCOLLIDER_PORT", "")).is_valid_int():
+		port = str(env["TOKENCOLLIDER_PORT"]).to_int()
+	token = str(env.get("TOKENCOLLIDER_TOKEN", token))
 
 
 func request(path: String, body = null) -> Variant:
@@ -33,10 +64,11 @@ func request(path: String, body = null) -> Variant:
 	add_child(http)
 	var err: int
 	if body == null:
-		err = http.request(base_url() + path)
+		err = http.request(base_url() + path, auth_headers())
 	else:
-		err = http.request(base_url() + path,
-			PackedStringArray(["Content-Type: application/json"]),
+		var headers := auth_headers()
+		headers.append("Content-Type: application/json")
+		err = http.request(base_url() + path, headers,
 			HTTPClient.METHOD_POST, JSON.stringify(body))
 	if err != OK:
 		http.queue_free()

@@ -33,3 +33,25 @@ func test_client_has_no_scene_dependencies() -> void:
 	harness.ok(s is Node, "is a Node so it can parent HTTPRequest")
 	harness.ok(s.get_parent() == null, "constructs without a scene")
 	s.free()
+
+func test_launch_from_env() -> void:
+	## Desktop: `tokencollider view` passes the port and token in the env.
+	var s = Sidecar.new()
+	s.apply_launch({"TOKENCOLLIDER_PORT": "8799", "TOKENCOLLIDER_TOKEN": "abc"})
+	harness.eq(s.port, 8799, "env port applied")
+	harness.eq(s.token, "abc", "env token applied")
+	harness.eq(s.auth_headers()[0], "X-TokenCollider-Token: abc", "token header")
+	s.apply_launch({"TOKENCOLLIDER_PORT": "", "TOKENCOLLIDER_TOKEN": "abc"})
+	harness.eq(s.port, 8799, "blank env port leaves the port alone")
+	s.free()
+
+func test_launch_from_page_url() -> void:
+	## Browser: the page came from the sidecar, so its URL names the sidecar,
+	## and the token rides in the fragment the browser never sends anywhere.
+	var s = Sidecar.new()
+	s.apply_launch({}, "http://127.0.0.1:9123/#token=a-b_c%3D")
+	harness.eq(s.host, "127.0.0.1", "host from page")
+	harness.eq(s.port, 9123, "port from page")
+	harness.eq(s.token, "a-b_c=", "token from fragment, decoded")
+	harness.eq(s.base_url(), "http://127.0.0.1:9123", "base url follows the page")
+	s.free()

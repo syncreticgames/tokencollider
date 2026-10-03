@@ -16,7 +16,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tokencollider.embedder import FakeEmbedder
 from tokencollider.layout import LayerStack, LayoutSession
 from tokencollider.oklab import hex_to_zscores, zscores_to_hex
-from tokencollider.server import make_handler
+from tokencollider.server import TOKEN_HEADER, make_handler
+
+TOKEN = "test-session-token"
+AUTH = {TOKEN_HEADER: TOKEN}
 
 WORDS = ["Mario", "Luigi", "Bowser", "Link", "Zelda", "Kirby", "Samus", "Ridley",
          "Pikachu", "Sonic"]
@@ -190,10 +193,11 @@ def test_band_configured_stack():
     assert stack.session((18, 34)) is stack.primary
     assert stack.layer_key(None) == "18-34"
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(stack))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(stack, token=TOKEN))
     port = server.server_address[1]
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    with urllib.request.urlopen(f"http://127.0.0.1:{port}/layout") as r:
+    with urllib.request.urlopen(urllib.request.Request(
+            f"http://127.0.0.1:{port}/layout", headers=AUTH)) as r:
         lay = json.loads(r.read())
     assert lay["layer"] == [18, 34] and lay["n_landmarks"] == 4, lay["layer"]
     server.shutdown()
@@ -205,7 +209,7 @@ def test_http_server():
     stack = LayerStack(FakeEmbedder(dim=128))
     tmp_root = tempfile.mkdtemp()
     server = ThreadingHTTPServer(("127.0.0.1", 0),
-                                 make_handler(stack, export_root=Path(tmp_root)))
+                                 make_handler(stack, export_root=Path(tmp_root), token=TOKEN))
     port = server.server_address[1]
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
@@ -213,7 +217,7 @@ def test_http_server():
         data = json.dumps(payload).encode() if payload is not None else None
         req = urllib.request.Request(
             f"http://127.0.0.1:{port}{path}", data=data, method=method,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", **AUTH},
         )
         try:
             with urllib.request.urlopen(req) as r:
@@ -374,10 +378,11 @@ def test_http_server():
     stack2 = LS(FakeEmbedder(dim=128))
     stack2.add_landmarks(ses_phrases, source="preload")
     stack2.provenance = ses_meta
-    server2 = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(stack2))
+    server2 = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(stack2, token=TOKEN))
     port2 = server2.server_address[1]
     threading.Thread(target=server2.serve_forever, daemon=True).start()
-    with urllib.request.urlopen(f"http://127.0.0.1:{port2}/layout") as r:
+    with urllib.request.urlopen(urllib.request.Request(
+            f"http://127.0.0.1:{port2}/layout", headers=AUTH)) as r:
         lay2 = json.loads(r.read())
     assert lay2["view"] == view
     server2.shutdown()
@@ -401,7 +406,8 @@ def test_http_server():
     assert status == 200
     pics = {e["label"]: e for e in lay_i["landmarks"] if e["kind"] == "image"}
     assert set(pics) == {"sunset", "sea"}, set(pics)
-    req = urllib.request.Request(f"http://127.0.0.1:{port}" + pics["sea"]["image"])
+    req = urllib.request.Request(f"http://127.0.0.1:{port}" + pics["sea"]["image"],
+                                 headers=AUTH)
     with urllib.request.urlopen(req) as r:
         assert r.headers["Content-Type"] == "image/jpeg"
         thumb = r.read()
@@ -525,21 +531,41 @@ def test_http_server():
 
 def test_server_refuses_hostile_requests():
     """The sidecar binds a loopback port, so any page you visit can POST to
-    it and every local process can reach it. Three doors, all shut:
+    it and every local process can reach it. Every door, all shut:
 
     - a cross-origin form POST cannot set Content-Type: application/json
       without a preflight, and this server answers none and sends no CORS
       headers, so requiring that header blocks CSRF;
-    - an Origin header means a browser context, which has no business here;
+    - every API request needs the session token, so neither a web page nor
+      another local process can drive it without being handed one;
+    - an Origin other than the sidecar's own page is refused;
+    - a Host other than 127.0.0.1/localhost on this port is refused, which is
+      what stops a DNS-rebinding page that the browser thinks is same-origin;
+    - the web build is served by exact name only, with no token (it holds no
+      secret) but behind the same Host check;
     - `/export` takes a filename from the request body, which unchecked is an
       arbitrary file write.
     """
     stack = LayerStack(FakeEmbedder(dim=64))
     for w in ("alpha", "beta", "gamma"):
         stack.add_landmark(w)
-    server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(stack))
+    web = Path(tempfile.mkdtemp())
+    (web / "index.html").write_text("<html>viewport</html>")
+    (web / "index.wasm").write_bytes(b"\0asm")
+    (web / "notes.txt").write_text("not a web build type")
+    server = ThreadingHTTPServer(("127.0.0.1", 0),
+                                 make_handler(stack, token=TOKEN, web_dir=web))
     port = server.server_address[1]
     threading.Thread(target=server.serve_forever, daemon=True).start()
+
+    def get(path, headers=None):
+        req = urllib.request.Request(f"http://127.0.0.1:{port}{path}",
+                                     headers=headers or {})
+        try:
+            with urllib.request.urlopen(req) as r:
+                return r.status, r.headers["Content-Type"], r.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.headers["Content-Type"], e.read()
 
     def raw(payload, headers):
         req = urllib.request.Request(
@@ -552,14 +578,42 @@ def test_server_refuses_hostile_requests():
             return e.code, json.loads(e.read())
 
     coords = [0.0] * 6
-    JSON = {"Content-Type": "application/json"}
+    JSON = {"Content-Type": "application/json", **AUTH}
 
     code, _ = raw({"coords": coords, "path": "x.safetensors"},
-                  {"Content-Type": "text/plain"})
+                  {"Content-Type": "text/plain", **AUTH})
     assert code == 403, f"form-POST CSRF not refused: {code}"
 
     code, _ = raw({"coords": coords}, {**JSON, "Origin": "https://evil.example"})
     assert code == 403, f"cross-origin request not refused: {code}"
+
+    # The token: required on POST and on every API GET, /health included.
+    code, body = raw({"coords": coords}, {"Content-Type": "application/json"})
+    assert code == 403 and "token" in body["error"], (code, body)
+    code, _ = raw({"coords": coords}, {**JSON, TOKEN_HEADER: "guess"})
+    assert code == 403, f"wrong token not refused: {code}"
+    for path in ("/health", "/layout", "/trajectory"):
+        assert get(path)[0] == 403, f"{path} served without a token"
+        assert get(path, AUTH)[0] == 200, f"{path} refused with the token"
+
+    # Host: a rebinding page's requests name its own domain.
+    for host in ("evil.example", f"evil.example:{port}", "127.0.0.1:1"):
+        assert get("/layout", {**AUTH, "Host": host})[0] == 403, host
+        assert get("/", {"Host": host})[0] == 403, f"page served to Host {host}"
+    assert get("/layout", {**AUTH, "Host": f"localhost:{port}"})[0] == 200
+
+    # The sidecar's own page may call it; its Origin is this host and port.
+    code, _ = raw({"coords": coords}, {**JSON, "Origin": f"http://127.0.0.1:{port}"})
+    assert code == 200, f"own page refused: {code}"
+
+    # The web build: no token, right types, nothing outside the listing.
+    code, ctype, page = get("/")
+    assert code == 200 and ctype.startswith("text/html") and b"viewport" in page
+    code, ctype, _ = get("/index.wasm")
+    assert code == 200 and ctype == "application/wasm", (code, ctype)
+    for path in ("/notes.txt", "/../server.py", "/%2e%2e/server.py", "/index.wasm/x"):
+        code, _, _ = get(path)
+        assert code in (403, 404), f"{path} served: {code}"
 
     for bad in ("/tmp/pwned.safetensors", "../../../../tmp/pwn.safetensors"):
         code, body = raw({"coords": coords, "path": bad}, JSON)
@@ -568,7 +622,8 @@ def test_server_refuses_hostile_requests():
     assert not Path("/tmp/pwned.safetensors").exists()
     assert not Path("/tmp/pwn.safetensors").exists()
     server.shutdown()
-    print("ok: server refuses CSRF, cross-origin, and escaping export paths")
+    print("ok: server refuses CSRF, missing tokens, foreign Origin and Host, "
+          "stray static paths, and escaping export paths")
 
 
 def test_ragged_phrases_blend_tail_to_tail():
@@ -631,7 +686,7 @@ def test_server_serialises_concurrent_requests():
     stack = LayerStack(FakeEmbedder(dim=256))
     for w in ("a0", "a1", "a2", "a3", "a4", "a5", "a6"):
         stack.add_landmark(w)
-    server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(stack))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(stack, token=TOKEN))
     port = server.server_address[1]
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
@@ -639,7 +694,7 @@ def test_server_serialises_concurrent_requests():
         data = json.dumps(payload).encode() if payload is not None else None
         req = urllib.request.Request(
             f"http://127.0.0.1:{port}{path}", data=data, method=method,
-            headers={"Content-Type": "application/json"})
+            headers={"Content-Type": "application/json", **AUTH})
         try:
             with urllib.request.urlopen(req) as r:
                 return r.status

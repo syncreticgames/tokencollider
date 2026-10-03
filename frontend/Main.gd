@@ -58,6 +58,7 @@ func _ready() -> void:
 	factory.name = "LandmarkFactory"
 	factory.shapes = shapes
 	factory.base_url_provider = func() -> String: return sidecar.base_url()
+	factory.headers_provider = func() -> PackedStringArray: return sidecar.auth_headers()
 	add_child(factory)
 
 	# The shared seam. Components read state from it and emit intent back;
@@ -99,14 +100,17 @@ func _ready() -> void:
 	sidecar.request_failed.connect(func(what: String): status_label.text = what)
 	add_child(sidecar)
 
-	# Port precedence: TOKENCOLLIDER_PORT (`tokencollider view` knows which one it actually started),
-	# then the saved setting, then the default. The env wins because it
-	# reflects reality; the setting is what the user last chose.
+	# Saved settings first, then whatever `tokencollider view` says it actually
+	# started, which wins (see Sidecar.apply_launch).
 	sidecar.host = settings.get_value("sidecar/host")
 	sidecar.port = int(settings.get_value("sidecar/port"))
-	var env_port := OS.get_environment("TOKENCOLLIDER_PORT")
-	if env_port.is_valid_int():
-		sidecar.port = env_port.to_int()
+	if OS.has_feature("web"):
+		sidecar.apply_launch({}, str(JavaScriptBridge.eval("window.location.href", true)))
+	else:
+		sidecar.apply_launch({
+			"TOKENCOLLIDER_PORT": OS.get_environment("TOKENCOLLIDER_PORT"),
+			"TOKENCOLLIDER_TOKEN": OS.get_environment("TOKENCOLLIDER_TOKEN"),
+		})
 	word_entry.text_submitted.connect(_on_word_submitted)
 	layer_slider.value_changed.connect(_on_layer_hi_changed)
 	layer_slider_lo.value_changed.connect(_on_layer_lo_changed)

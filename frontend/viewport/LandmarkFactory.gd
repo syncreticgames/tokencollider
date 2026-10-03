@@ -9,6 +9,7 @@ extends Node
 
 var shapes: RefCounted = null   ## lib/ShapeAtlas.gd
 var base_url_provider: Callable = func() -> String: return ""
+var headers_provider: Callable = func() -> PackedStringArray: return PackedStringArray()
 
 
 func make_node_sprite(shape_kind: String, size: float) -> MeshInstance3D:
@@ -76,7 +77,7 @@ func make_image_sprite(url: String, size: float) -> MeshInstance3D:
 func load_image_texture(shape: MeshInstance3D, url: String) -> void:
 	var http := HTTPRequest.new()
 	add_child(http)
-	if http.request(base_url_provider.call() + url) != OK:
+	if http.request(base_url_provider.call() + url, headers_provider.call()) != OK:
 		http.queue_free()
 		return
 	var res: Array = await http.request_completed

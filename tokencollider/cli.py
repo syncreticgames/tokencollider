@@ -236,7 +236,7 @@ def cmd_serve(args, embedder) -> None:
         print(f"[tokencollider] preloaded {len(stack.phrases)} landmarks from {args.universe}")
     serve(stack, port=args.port, export_root=args.export_dir,
           layer_bounds=getattr(args, "layer_bounds", (None, None)),
-          godot=getattr(args, "godot", None))
+          godot=getattr(args, "godot", None), web=getattr(args, "web", False))
 
 
 def images_max_edge() -> float:
@@ -317,6 +317,10 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--export-dir", type=Path, default=None,
                        help="the only directory exports may be written to "
                             "(default: exports/)")
+        if name == "view":
+            p.add_argument("--desktop", action="store_true",
+                           help="open the desktop Godot viewport instead of "
+                                "the browser one")
 
     analysis = []
     p = command("warm", "embed a universe into the cache")
@@ -465,10 +469,13 @@ def main(argv: list[str] | None = None) -> None:
         cmd_profiles(args)
         return
     if args.command == "view":
-        # Before any model load, so a missing Godot fails in a second rather
-        # than after a universe preload.
-        from .server import find_godot
-        args.godot = find_godot()
+        # Before any model load, so a missing viewport fails in a second
+        # rather than after a universe preload. The browser build when it is
+        # installed, desktop Godot when asked for or when it is not.
+        from .server import find_godot, web_build_available
+        args.web = not args.desktop and web_build_available()
+        if not args.web:
+            args.godot = find_godot()
     if args.command in ("view", "serve") and args.fake:
         cmd_serve(args, FakeEmbedder())
         return

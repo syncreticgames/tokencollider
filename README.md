@@ -3,7 +3,7 @@
 A viewer for the embedding space of a language-model text encoder: the
 decoder-only LLM that a growing number of diffusion models read their
 conditioning from, often at several hidden layers at once. Phrases become
-**landmarks** in a 3D Godot viewport, grouped into **universes**, and the
+**landmarks** in a 3D viewport in the browser, grouped into **universes**, and the
 encoder's layers can be scrubbed to see how meaning gets built. A point in the
 viewport can be read back as words (the nearest cached phrases) or written out
 as a conditioning tensor in the diffusion model's own frame.
@@ -43,6 +43,35 @@ closer to Mario than to Donkey Kong?" has two answers:
 
 Where the two disagree, the universe is changing the answer.
 
+## Install and run
+
+TokenCollider needs Python 3.13 or newer and PyTorch. On Linux, PyTorch from
+PyPI already includes CUDA. On Windows, PyPI's PyTorch runs on the CPU only, so
+install the CUDA build first with the command from
+[PyTorch's install selector](https://pytorch.org/get-started/locally/).
+
+From a release, install the wheel attached to it. It includes the browser
+viewport:
+
+```
+pip install tokencollider-<version>-py3-none-any.whl
+tokencollider --fake universes/words.txt
+```
+
+`--fake` uses deterministic fake embeddings, so it runs with no GPU and no
+model. To use a real encoder, copy `profiles.example.yaml` to `profiles.yaml`
+and point it at your model files (`TOKENCOLLIDER_PROFILES` names another
+location).
+
+`tokencollider view` (the default command) starts the sidecar and opens the
+viewport in your browser. `tokencollider view --desktop` opens the desktop
+Godot viewport instead; it needs a source checkout and
+[Godot 4](https://godotengine.org/download) on your PATH.
+
+From a source checkout, `uv sync` installs the dependencies, and
+`tools/export_web.sh` builds the browser viewport. That needs Godot 4.7 and its
+web export templates. Without it, `view` falls back to desktop Godot.
+
 ## Layout
 
 The core. Its code names no model; what it knows about one comes from a
@@ -50,8 +79,12 @@ profile:
 
 - `tokencollider/`: the Python side. It owns the encoder, the SQLite embedding cache and a
   loopback-only HTTP sidecar, and provides the `tokencollider` command.
-- `frontend/`: the Godot 4 viewport. Its structure is in
+- `frontend/`: the Godot 4 viewport. It runs on the desktop, or in the
+  browser as a web export the sidecar serves. Its structure is in
   [frontend/ARCHITECTURE.md](frontend/ARCHITECTURE.md).
+- `tools/export_web.sh`: builds the web export. On a version tag,
+  `.github/workflows/release.yml` runs it, builds the wheel with it inside,
+  and attaches the wheel to a GitHub release.
 - `universes/`: sample phrase lists.
 - `tests/`: model-free test suites and a metric baseline, plus
   `tests/real_model.py`, which runs the two built-in profiles on real weights.

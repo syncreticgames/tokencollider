@@ -1,5 +1,9 @@
 """Localhost HTTP sidecar for the Godot viewport.
 
+Every request needs the session token in an X-TokenCollider-Token header and a
+Host of 127.0.0.1:<port> or localhost:<port>; see docs/security.md. The web
+build's own files (GET / and the files beside index.html) need only the Host.
+
 Contract (all JSON):
   GET  /health                      -> {"ok": true, "n_landmarks": N}
   GET  /layout[?layer=N]            -> full layout (see layout.py), plus
@@ -85,13 +89,16 @@ client-side or just send raw coords). Stdlib-only by design.
 """
 
 import hashlib
+import hmac
 import json
 import os
+import secrets
 import shutil
 import subprocess
 import threading
 import time
 import traceback
+import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -102,6 +109,15 @@ from .layout import LayerStack, LayoutSession
 EXPORT_DIR = Path(__file__).resolve().parent.parent / "exports"
 UNIVERSE_DIR = Path(__file__).resolve().parent.parent / "universes"
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+# The Godot web export. CI builds it into the wheel; a checkout gets it from
+# tools/export_web.sh. Absent, `view` falls back to desktop Godot.
+WEB_DIR = Path(__file__).resolve().parent / "web"
+TOKEN_HEADER = "X-TokenCollider-Token"
+# The web export's file types. .wasm must be application/wasm or the browser
+# refuses to stream-compile it.
+WEB_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript",
+             ".wasm": "application/wasm", ".pck": "application/octet-stream",
+             ".png": "image/png"}
 
 
 def _universe_extra(stack: LayerStack, extra: dict | None = None) -> dict:
@@ -407,14 +423,26 @@ def parse_layer(val):
     return lo if lo == hi else (lo, hi)
 
 
+def web_build_available() -> bool:
+    return (WEB_DIR / "index.html").is_file()
+
+
 def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] = (None, None),
-                 export_root: Path | None = None):
+                 export_root: Path | None = None, *, token: str,
+                 web_dir: Path | None = None):
     # Where exports may be written. The OPERATOR picks this when launching
     # (--export-dir); a REQUEST only ever names a path relative to it. That is
     # the whole security boundary: the person who started the process is
     # trusted, whatever opened a socket to the loopback port is not.
     root = Path(export_root).resolve() if export_root else EXPORT_DIR
     lock = threading.RLock()
+    if not token:
+        raise ValueError("the sidecar needs a session token")
+    # Static files are served by exact name from a listing taken now, so a
+    # request path never touches the filesystem.
+    web_dir = WEB_DIR if web_dir is None else web_dir
+    web_files = {f.name: f for f in web_dir.iterdir()
+                 if f.is_file() and f.suffix in WEB_TYPES} if web_dir.is_dir() else {}
 
     def layout_payload(layer, axes: str = "local") -> dict:
         session = stack.session(layer)
@@ -485,20 +513,39 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
             self.end_headers()
             self.wfile.write(body)
 
+        def _guard(self, need_token: bool = True) -> None:
+            """Refuse anything not from this sidecar's own page or client.
+
+            Host: a DNS-rebinding page (evil.example resolved to 127.0.0.1)
+            is same-origin in the browser's eyes, but its Host header still
+            names its own domain. Origin: a browser marks every cross-origin
+            request with it; the only page allowed is the one served here.
+            Token: random per session, handed to the client out of band
+            (env for desktop Godot, URL fragment for the web build), so
+            neither a web page nor another local process can drive the API
+            without it."""
+            port = self.server.server_address[1]
+            hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
+            if self.headers.get("Host") not in hosts:
+                raise PermissionError("unexpected Host header")
+            origin = self.headers.get("Origin")
+            if origin is not None and origin not in {f"http://{h}" for h in hosts}:
+                raise PermissionError("cross-origin requests are refused")
+            if need_token and not hmac.compare_digest(
+                    (self.headers.get(TOKEN_HEADER) or "").encode(), token.encode()):
+                raise PermissionError("missing or wrong session token")
+
         def _body(self) -> dict:
             # A browser on any page you visit can POST to a loopback port.
             # It cannot set Content-Type: application/json cross-origin
             # without a preflight, and this server answers no preflight and
             # sends no CORS headers, so requiring it blocks form-POST CSRF.
-            # A native client (the Godot frontend) already sends it. The
-            # Origin check is belt and braces: nothing in a browser context
-            # has any business here.
+            # Both Godot clients already send it. The token and Origin checks
+            # in _guard are the other two locks on the same door.
             ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip()
             if ctype.lower() != "application/json":
                 raise PermissionError(
                     "POST requires Content-Type: application/json")
-            if self.headers.get("Origin"):
-                raise PermissionError("cross-origin requests are refused")
             length = int(self.headers.get("Content-Length", 0))
             return json.loads(self.rfile.read(length)) if length else {}
 
@@ -531,6 +578,21 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
 
         def do_GET(self):
             url = urlparse(self.path)
+            name = "index.html" if url.path == "/" else url.path.lstrip("/")
+            try:
+                self._guard(need_token=name not in web_files and url.path != "/")
+            except PermissionError as e:
+                self._send(403, {"error": str(e)})
+                return
+            if name in web_files:
+                # The page holds no secret; the token arrives in its URL
+                # fragment, which the browser never sends to a server.
+                self._send_bytes(200, web_files[name].read_bytes(),
+                                 WEB_TYPES[web_files[name].suffix])
+                return
+            if url.path == "/":
+                self._send(404, {"error": "no web build; run tools/export_web.sh"})
+                return
             if url.path == "/health":
                 # Outside the lock, so it answers during a long warm.
                 self._send(200, {"ok": True, "n_landmarks": len(stack.phrases)})
@@ -538,7 +600,10 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
             self._dispatch(lambda: self._get(url))
 
         def do_POST(self):
-            self._dispatch(self._post)
+            def handle():
+                self._guard()
+                self._post()
+            self._dispatch(handle)
 
         def _get(self, url) -> None:
             if url.path == "/layout":
@@ -758,32 +823,51 @@ def find_godot() -> str:
              or shutil.which("godot4"))
     if godot is None:
         raise SystemExit("[tokencollider] godot not found on PATH; set "
-                         "TOKENCOLLIDER_GODOT, or run the sidecar alone "
+                         "TOKENCOLLIDER_GODOT, build the browser viewport with "
+                         "tools/export_web.sh, or run the sidecar alone "
                          "with `tokencollider serve`")
+    if not (FRONTEND_DIR / "project.godot").is_file():
+        # A wheel install ships the web build, not the Godot project.
+        raise SystemExit("[tokencollider] the desktop viewport needs a source "
+                         "checkout; this install has only the browser one")
     return godot
 
 
 def serve(stack: LayerStack, port: int = 8765, export_root: Path | None = None,
           layer_bounds: tuple[int | None, int | None] = (None, None),
-          godot: str | None = None) -> None:
-    """Run the sidecar. Given a Godot binary, also open the viewport and stop
-    the sidecar when it closes. The port is bound before Godot starts, so the
+          godot: str | None = None, web: bool = False) -> None:
+    """Run the sidecar. With web=True, also open the web build in the default
+    browser. Given a Godot binary instead, open the desktop viewport and stop
+    the sidecar when it closes. The port is bound before either starts, so the
     viewport never races a sidecar that is still loading."""
+    # A fixed TOKENCOLLIDER_TOKEN lets a hand-started Godot editor run talk to
+    # a hand-started `serve`; otherwise every session gets a fresh one.
+    token = os.environ.get("TOKENCOLLIDER_TOKEN") or secrets.token_urlsafe(32)
     try:
         server = ThreadingHTTPServer(("127.0.0.1", port),
-                                     make_handler(stack, layer_bounds, export_root))
+                                     make_handler(stack, layer_bounds, export_root,
+                                                  token=token))
     except OSError as e:
         raise SystemExit(f"[tokencollider] cannot listen on 127.0.0.1:{port}: {e.strerror}")
+    port = server.server_address[1]
     root = Path(export_root).resolve() if export_root else EXPORT_DIR
     print(f"[tokencollider] sidecar listening on http://127.0.0.1:{port} (loopback only)")
     print(f"[tokencollider] exports confined to {root}")
+    if godot is None and not web:
+        print(f"[tokencollider] session token: {token} (send it as {TOKEN_HEADER})")
     try:
-        if godot is None:
+        if web:
+            url = f"http://127.0.0.1:{port}/#token={token}"
+            print(f"[tokencollider] viewport: {url}")
+            webbrowser.open(url)
+            server.serve_forever()
+        elif godot is None:
             server.serve_forever()
         else:
             threading.Thread(target=server.serve_forever, daemon=True).start()
             subprocess.run([godot, "--path", str(FRONTEND_DIR)],
-                           env={**os.environ, "TOKENCOLLIDER_PORT": str(port)})
+                           env={**os.environ, "TOKENCOLLIDER_PORT": str(port),
+                                "TOKENCOLLIDER_TOKEN": token})
     except KeyboardInterrupt:
         print("\n[tokencollider] shutting down")
     finally:

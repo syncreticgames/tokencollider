@@ -1,0 +1,66 @@
+# On a version tag (v0.1.0), export the browser viewport with Godot, build the
+# wheel with it inside, and attach the wheel to a GitHub Release.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tag matches the package version
+        run: |
+          version=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
+          test "v$version" = "$GITHUB_REF_NAME" || {
+            echo "tag $GITHUB_REF_NAME does not match pyproject version $version"; exit 1; }
+
+      - name: Cache Godot and its web export templates
+        id: godot-cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-web
+
+      - name: Install Godot and its web export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          mkdir -p ~/godot
+          curl -fsSL -o /tmp/godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q -o /tmp/godot.zip -d ~/godot
+          # The full template archive is over a gigabyte; keep only the web ones.
+          curl -fsSL -o /tmp/templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          dest=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$dest"
+          unzip -q -j /tmp/templates.tpz 'templates/web*' 'templates/version.txt' -d "$dest"
+
+      - name: Export the browser viewport
+        run: TOKENCOLLIDER_GODOT=~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 tools/export_web.sh
+
+      - name: Run the viewport's own tests
+        run: ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path frontend --script tests/run_tests.gd
+
+      - uses: astral-sh/setup-uv@v10
+
+      - name: Build the wheel
+        run: |
+          uv build --wheel
+          unzip -l dist/*.whl | grep -q 'tokencollider/web/index.wasm' || {
+            echo "the wheel is missing the web build"; exit 1; }
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.whl --generate-notes
