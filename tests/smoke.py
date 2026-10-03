@@ -552,6 +552,35 @@ def test_bridge_caption_ext_without_dot():
     print("ok: the bridge reads captions with caption_ext given with or without the dot")
 
 
+def test_jumpstart_teacher_cache_is_bounded():
+    """Teachers are tens of MB each on Krea 2; holding every one for a run
+    came to tens of GB. The trainer keeps at most `teacher_cache` of them,
+    dropping the least recently used."""
+    src = (Path(__file__).resolve().parent.parent / "trainers" /
+           "tokencollider_jumpstart" / "JumpstartTrainer.py").read_text(encoding="utf-8")
+    ns = {}
+    exec("\n".join(l for l in src.split("def trainer_base")[0].splitlines()
+                   if not l.startswith(("from extensions_built_in", "from toolkit"))), ns)
+    loads = []
+    cache = ns["BoundedCache"](2)
+    load = lambda key: loads.append(key) or f"tensor:{key}"
+    assert cache.get("a", load) == "tensor:a"
+    cache.get("b", load)
+    cache.get("a", load)          # a is now the most recent
+    cache.get("c", load)          # over the limit: b goes, a stays
+    assert len(cache) == 2 and loads == ["a", "b", "c"], loads
+    cache.get("a", load)
+    assert loads == ["a", "b", "c"], "a should still be cached"
+    cache.get("b", load)
+    assert loads == ["a", "b", "c", "b"], "b should have been evicted"
+    try:
+        ns["BoundedCache"](0)
+        raise AssertionError("a zero-size cache was accepted")
+    except ValueError:
+        pass
+    print("ok: the jumpstart teacher cache is bounded, least recently used out first")
+
+
 if __name__ == "__main__":
     test_store_roundtrip()
     test_store_forget_large_batch()
@@ -564,6 +593,7 @@ if __name__ == "__main__":
     test_bridge_cache()
     test_bridge_refuses_an_anchor_from_another_frame()
     test_bridge_caption_ext_without_dot()
+    test_jumpstart_teacher_cache_is_bounded()
     test_bridge_dropout_pair()
     test_bridge_alternate_anchors()
     test_cli_parsing()

@@ -10,6 +10,9 @@ config:
         # the target moves further along the direction away from the
         # caption-only prediction. Costs one extra no-grad forward per step.
         anchor_guidance: 1.0
+        # Teachers kept in memory, least recently used dropped first. Each is
+        # a full conditioning, tens of MB on Krea 2.
+        teacher_cache: 64
       training_folder: output
       device: cuda:0
       network:

@@ -41,6 +41,7 @@ Cache layout the bridge writes with `--jumpstart`:
 import glob
 import os
 import random
+from collections import OrderedDict
 
 import torch
 
@@ -65,6 +66,42 @@ def alternate_paths_for(text_embedding_path: str) -> list[str]:
     # Escaped: an image named `photo [1].jpg` puts brackets in `root`, which a
     # glob reads as a character class, and then nothing matches.
     return sorted(glob.glob(glob.escape(root) + ".anchor.[0-9][0-9].safetensors"))
+
+
+def load_teacher(path: str) -> "PromptEmbeds":
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"no anchored embedding beside the cache file: {path}. "
+            "The cache was not written by `tokencollider bridge --jumpstart`, "
+            "or predates its dropout pair.")
+    return PromptEmbeds.load(path)
+
+
+class BoundedCache:
+    """At most `size` loaded teachers, least recently used out first.
+
+    Every teacher used to stay in memory for the whole run: on Krea 2 a
+    token is twelve 2560-wide bf16 rows (about 61 KB), so 500 images with
+    four alternates of about 300 tokens each came to roughly 37 GB of RAM.
+    Reloading a teacher from disk costs far less than a training step."""
+
+    def __init__(self, size: int):
+        if size < 1:
+            raise ValueError("jumpstart.teacher_cache must be at least 1")
+        self.size = size
+        self._items = OrderedDict()
+
+    def get(self, key, load):
+        if key in self._items:
+            self._items.move_to_end(key)
+        else:
+            self._items[key] = load(key)
+            if len(self._items) > self.size:
+                self._items.popitem(last=False)
+        return self._items[key]
+
+    def __len__(self):
+        return len(self._items)
 
 
 def trainer_base():
@@ -96,9 +133,11 @@ class JumpstartTrainer(trainer_base()):
         # The train loop runs the network-off teacher pass whenever this is
         # set, and the default loss branch then targets it.
         self.do_prior_prediction = True
-        self._anchor_cache: dict[str, PromptEmbeds] = {}
-        self._alt_cache: dict[str, list[str]] = {}
         conf = self.get_conf("jumpstart", {}) or {}
+        # Teachers loaded from disk, kept up to this many. Each is a full
+        # conditioning (tens of MB on Krea 2), so this bounds RAM.
+        self._anchor_cache = BoundedCache(int(conf.get("teacher_cache", 64)))
+        self._alt_cache: dict[str, list[str]] = {}
         # >1 pushes the target PAST the anchored prediction, along the
         # direction away from the caption-only one. Same shape as CFG, and for
         # the same reason: the difference between the two predictions IS the
@@ -151,14 +190,7 @@ class JumpstartTrainer(trainer_base()):
                 self._alt_cache[base] = alternate_paths_for(base)
             alts = self._alt_cache[base]
             path = random.choice(alts) if alts else anchor_path_for(base)
-            if path not in self._anchor_cache:
-                if not os.path.exists(path):
-                    raise FileNotFoundError(
-                        f"no anchored embedding beside the cache file: {path}. "
-                        "The cache was not written by `tokencollider bridge --jumpstart`, "
-                        "or predates its dropout pair.")
-                self._anchor_cache[path] = PromptEmbeds.load(path)
-            items.append(self._anchor_cache[path].clone().detach())
+            items.append(self._anchor_cache.get(path, load_teacher).clone().detach())
         return concat_prompt_embeds(items).to(device, dtype=dtype)
 
     def get_prior_prediction(self, noisy_latents, conditional_embeds, *args,
