@@ -571,7 +571,10 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
             length = int(raw)
             if length > MAX_BODY:
                 raise ValueError(f"body of {length} bytes is over the {MAX_BODY}-byte limit")
-            body = json.loads(self.rfile.read(length)) if length else {}
+            data = self.rfile.read(length) if length else b""
+            if len(data) < length:
+                raise ConnectionAbortedError  # the client hung up mid-body
+            body = json.loads(data) if length else {}
             if not isinstance(body, dict):
                 raise ValueError("the body must be a JSON object")
             return body
@@ -633,6 +636,9 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
             try:
                 self._guard()
                 body = self._body()
+            except ConnectionAbortedError:
+                self.close_connection = True  # nobody left to answer
+                return
             except PermissionError as e:
                 self._send(403, {"error": str(e)})
                 return
