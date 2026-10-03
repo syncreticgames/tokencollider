@@ -95,9 +95,9 @@ profile:
 - `frontend/`: the Godot 4 viewport. It runs on the desktop, or in the
   browser as a web export the sidecar serves. Its structure is in
   [frontend/ARCHITECTURE.md](frontend/ARCHITECTURE.md).
-- `tools/export_web.sh`: builds the web export. On a version tag,
-  `.github/workflows/release.yml` runs it, builds the wheel with it inside,
-  and attaches the wheel to a GitHub release.
+- `tools/export_web.sh`: builds the web export. When a GitHub release is
+  published, `.github/workflows/release.yml` runs it, builds the wheel with it
+  inside, and attaches the wheel to the release.
 - `universes/`: sample phrase lists.
 - `tests/`: model-free test suites and a metric baseline, plus
   `tests/real_model.py`, which runs the two built-in profiles on real weights.
