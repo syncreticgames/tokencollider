@@ -541,7 +541,6 @@ func _apply_layout(layout: Dictionary) -> void:
 			selected.erase(text)
 	if restored_view != null:
 		_restore_cursor(restored_view)
-	print("[frontend] layout applied: %d landmarks, scale %.3f" % [landmarks.size(), ctx.world_scale])
 
 # --- constellations: delegated to viewport/Constellations.gd --------------
 
