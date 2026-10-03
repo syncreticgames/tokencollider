@@ -27,9 +27,10 @@ Design notes, what is planned, how the two halves fit.
 - Anything whose geometry depends on model, layer, pooling, template, or
   phrase set refuses to load under a different config rather than render
   plausible nonsense.
-- Privacy: the cache and exports carry every embedded phrase in plaintext
-  (and vectors decode back to text). `.gitignore` covers them; keep it that
-  way.
+- Privacy: the cache, exports and saved universes carry every embedded
+  phrase in plaintext (and vectors decode back to text). Installed, they live
+  in the user data folder; in a checkout, `.gitignore` covers them. Keep both
+  true.
 
 ## Planned
 

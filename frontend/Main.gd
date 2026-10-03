@@ -1011,20 +1011,20 @@ func _export_universe() -> void:
 		status_label.text = "session saved: %d phrases + view -> %s" % [res["n_phrases"], res["path"]]
 
 func _export_stack() -> void:
-	## Same cursor, same solved blend recipe, several cook depths across the
-	## band: deepest injection = most reinterpreted (schedule it on early
-	## sigmas), shallowest = most literal (late sigmas).
+	## Same cursor, same solved blend recipe, several inserters across the
+	## band: the deepest = most reinterpreted (schedule it on early sigmas),
+	## the shallowest = most literal (late sigmas).
 	if not _cursor_valid():
 		return
-	status_label.text = "exporting cook-depth stack ... (runs the model once per depth)"
+	status_label.text = "exporting inserter stack ... (runs the model once per inserter)"
 	var res = await _api("/export", _cursor_body({"stack": true}))
 	if res == null:
 		return
 	var depths := ""
 	for d in res["depths"]:
 		depths += ("" if depths.is_empty() else ", ") + str(d)
-	status_label.text = "exported %d-tensor stack (cook depths %s) -> exports/" % [
-		res["stack"].size(), depths]
+	status_label.text = "exported %d-tensor stack (inserters %s) -> %s" % [
+		res["stack"].size(), depths, _export_folder(res)]
 
 func _export_sweep() -> void:
 	## The synthetic walk: one cook from EVERY depth up to the sampler layer,
@@ -1036,7 +1036,14 @@ func _export_sweep() -> void:
 	var res = await _api("/export", _cursor_body({"stack": true, "sweep": true}))
 	if res == null:
 		return
-	status_label.text = "exported %d-depth sweep -> exports/ — render with a fixed seed to map the lift" % res["stack"].size()
+	status_label.text = "exported %d-layer sweep -> %s — render with a fixed seed to map the lift" % [
+		res["stack"].size(), _export_folder(res)]
+
+func _export_folder(res: Dictionary) -> String:
+	## Where a stack export actually went: the sidecar's export root (set by
+	## --export-dir, in TokenCollider's home by default), not a fixed exports/.
+	var files: Array = res.get("stack", [])
+	return str(files[0]["path"]).get_base_dir() if files.size() > 0 else "the export folder"
 
 func _export() -> void:
 	if not _cursor_valid():

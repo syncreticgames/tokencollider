@@ -4,7 +4,10 @@ Every request needs the session token in an X-TokenCollider-Token header and a
 Host of 127.0.0.1:<port> or localhost:<port>; see docs/security.md. The web
 build's own files (GET / and the files beside index.html) need only the Host.
 
-Contract (all JSON):
+Contract (JSON unless noted):
+  GET  /                            -> the browser viewport (index.html and
+                                       the files beside it, by exact name);
+                                       404 when no web build is installed
   GET  /health                      -> {"ok": true, "n_landmarks": N}
   GET  /layout[?layer=N]            -> full layout (see layout.py), plus
                                        "layer" (resolved layer index) and
@@ -34,20 +37,36 @@ neighborhood's centre in that chart ("center": coords + color, the origin
 in local axes). A body with "center": true names the landmark mean itself
 as the target, whatever "coords" says: a chart's six numbers only reach its
 own subspace, and the mean of this neighborhood lies in no other chart's.
-  POST /landmarks    {"text": str, "layer": int?}  -> layout after adding
-  POST /landmarks/remove {"text": str, "layer": int?} -> layout after removing
+  GET  /image/<sha>                 -> an image landmark's JPEG thumbnail
+                                       (the "image" field of its layout entry)
+  POST /landmarks    {"text": str | "texts": [str], "images": [path]?,
+                      "layer": int?}  -> layout after adding. A text starting
+                                       with "@" is an image path or folder;
+                                       "images" are paths, added as if typed
+                                       with "@"
+  POST /landmarks/remove {"text": str | "texts": [str], "layer": int?}
+                                    -> layout after removing, plus "removed"
   POST /interrogate  {"coords": [6 floats], "k": int?, "layer": int?} -> nearest
                                        landmarks, plus "nearest_vocab" — the
                                        nearest phrases in the whole cached
                                        vocabulary under this view's config
   POST /blend        {"coords": [6 floats], "layer": int?} -> least-squares landmark weights
   POST /export       {"coords": [6 floats], "path": str?, "layer": int?,
-                      "inserter": int?, "mirror": bool?}
+                      "inserter": int?, "mirror": bool?, "format": str?,
+                      "stack": bool?, "stack_count": int?, "sweep": bool?}
                       "layer" picks the chart, "inserter" sets where the blend
                       is placed; without "inserter" the two move together.
                       "mirror" also writes the centroid reflection as the
-                      negative half of a polarity pair
-  POST /export_universe {"name": str?}  -> writes the loaded landmark set to
+                      negative half of a polarity pair (refused with
+                      "center", which is its own reflection). "format" is
+                      "safetensors" (default) or "cond". "stack" writes one
+                      file per inserter across the band ("stack_count" of
+                      them, default 4), tagged _stack<id> so a loader can
+                      tell stacks apart; "sweep" with "stack" writes every
+                      depth to exports/sweeps/
+  POST /export_universe {"name": str?, "view": {...}?} -> writes the loaded
+                                       landmark set (and the viewport's view,
+                                       if given) to
                                        universes/saved/<name|session_TIMESTAMP>.txt
                                        (a taken name gets _2, _3, ...)
                                        with a #tokencollider provenance header (see
@@ -61,6 +80,8 @@ own subspace, and the mean of this neighborhood lies in no other chart's.
                                        chart transition; load=true (default)
                                        swaps the live stack to it and returns
                                        the new "layout"
+  POST /gpu/release                 -> frees the model from VRAM; the next
+                                       request that needs it loads it again
 
 Layout payloads carry "layer_min"/"layer_max" (the profile's slider bounds;
 null = unbounded), "sampler_layers" (every layer an export carries) and
@@ -78,15 +99,16 @@ sampler conditioning. Sampler layers at or below the inserter stay a direct
 blend. The band's low edge shapes the chart blend weights solve in; its
 high edge sets where cooking begins. Under the krea2 profile the chart (20)
 sits below the cook stop (35), so every viewport export cooks.
-                     -> writes the blended per-token conditioning tensor at that
-                        point to a safetensors file (key "conditioning", shape
-                        (1, seq, dim), weights in metadata). This file is the
-                        tool's take-home artifact; load it anywhere a raw
-                        conditioning is accepted.
+                     -> writes the blended per-token conditioning at that point
+                        to a safetensors file, in the format docs/export-format.md
+                        describes: key "conditioning" for one layer, "layer_NN"
+                        keys for a multi-layer profile, weights and provenance in
+                        metadata. This file is the tool's take-home artifact.
 
 Coordinates are layout-space: dims 1-3 position, dims 4-6 color axes
 (z-score to color via tokencollider.oklab; clients may send hex through hex_to_zscores
-client-side or just send raw coords). Stdlib-only by design.
+client-side or just send raw coords). The HTTP layer is the standard
+library's; no web framework.
 """
 
 import hashlib

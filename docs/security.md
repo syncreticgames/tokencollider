@@ -59,7 +59,8 @@ tool does survives that.
   secret, but they pass the `Host` check.
 - **Exports are confined to one directory.** `/export` takes a filename from
   the request body, which unchecked is an arbitrary file write. The OPERATOR
-  picks the root when launching (`--export-dir`, default `exports/`);
+  picks the root when launching (`--export-dir`, default `exports/` in
+  TokenCollider's home, see the README);
   a REQUEST only names a path relative to it. Absolute paths, `..`, and
   symlinks that escape are refused with a 400. That split is the whole
   boundary: whoever started the process is trusted, whatever opened a socket
@@ -76,9 +77,11 @@ path, absolute-path and traversal cases, and asserts no stray file appears.
 
 ## Known gaps
 
-- The cache and exports carry every embedded phrase in plaintext, and vectors
-  decode back to text. `.gitignore` covers `embeddings.db` and `exports/`;
-  a packaged build should say so in the UI, not only in a dotfile.
+- The cache, exports and saved universes carry every embedded phrase in
+  plaintext, and vectors decode back to text. They live in TokenCollider's
+  home: the user data folder when installed, or the repo in a source
+  checkout, where `.gitignore` keeps them out of commits. The README says so,
+  but the viewport itself doesn't yet.
 - The token is visible to anything that can read this user's process
   environment, browser history or temp files, which means code already
   running as the user. That is out of scope above.

@@ -253,7 +253,7 @@ class LoadConditioningStack:
             end = min(1.0, (i + 1) / n + overlap)
             conditioning.append([tensor, {"start_percent": start,
                                           "end_percent": end}])
-            lines.append(f"cook{depth:02d}: sigma {start:.2f}-{end:.2f}  "
+            lines.append(f"cook{depth:02d}: schedule {start:.2f}-{end:.2f}  "
                          f"({tensor.shape[-2]} tokens)")
         return (conditioning, "\n".join(lines))
 
@@ -266,5 +266,5 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     "LoadConditioningSafetensors": "Load Conditioning (safetensors)",
     "ConditioningInfo": "Conditioning Info",
-    "LoadConditioningStack": "Load Conditioning Stack (cook depths)",
+    "LoadConditioningStack": "Load Conditioning Stack (inserters)",
 }

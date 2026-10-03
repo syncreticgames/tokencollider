@@ -5,7 +5,7 @@ Three [ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes for TokenCollid
 - **Load Conditioning (safetensors)**: an export's path in, a standard
   `CONDITIONING` out, plus its metadata as a string. Re-runs when the file's
   content changes, so a re-export to a fixed path retriggers downstream.
-- **Load Conditioning Stack (cook depths)**: one stack export (one cursor at
+- **Load Conditioning Stack (inserters)**: one stack export (one cursor at
   several inserters), loaded as one conditioning. Give a glob such as
   `exports/<name>_cook*`, or a directory holding only that stack; a directory
   holding several stacks is refused with their names listed. Each

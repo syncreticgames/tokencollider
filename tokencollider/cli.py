@@ -327,7 +327,7 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--port", type=int, default=8765)
         p.add_argument("--export-dir", type=Path, default=None,
                        help="the only directory exports may be written to "
-                            "(default: exports/)")
+                            f"(default: {paths.home() / 'exports'})")
         if name == "view":
             p.add_argument("--desktop", action="store_true",
                            help="open the desktop Godot viewport instead of "
