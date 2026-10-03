@@ -7,8 +7,7 @@ that disagrees with it is the bug.
 
 [← TokenCollider README](../README.md)
 
-**Format version: 1.** Status: draft. The versioning rules below await the
-maintainer's sign-off; the format itself is what the code writes today.
+**Format version: 1.**
 
 ## The file
 
@@ -112,12 +111,23 @@ Readers must ignore fields they don't know.
 
 ### Which fields a reader checks
 
-TokenCollider's own readers don't check the frame fields today: the bridge
-re-labels layers, and the ComfyUI node loads whatever the keys say. **Draft
-rule, pending sign-off:** a reader that knows which model it feeds compares
-`model`, `template` and `layers` (or, for single-layer files, the index
-derived from `layer`) with its own, and refuses on a mismatch, the way
-TokenCollider already refuses a universe file made under another config.
+A reader that knows which model it feeds must check the file against it
+before using the tensors:
+
+- **Refuse** a file whose `template`, layers or `template_prefix_tokens`
+  differ from the reader's. Its tokens sit in positions the sampler never
+  produces. The layers are the `layer_NN` keys, or for a single-layer file the
+  index derived from `layer`.
+- **Warn, don't refuse,** when `model` differs. The field is a weights path,
+  which differs between machines and between packagings of one model, and
+  comparing a finetune with its base is a supported use. This matches how
+  TokenCollider treats a universe file made under another model.
+- **Warn** when a file is too old to carry `template` or `layer`, and load it.
+
+`check_frame` in `tokencollider/conditioning.py` implements this, and
+`tokencollider bridge` runs it on every anchor. A reader that can't know its
+model, such as the ComfyUI node, which isn't told which encoder feeds the
+workflow, loads the file as its keys say.
 
 ## Reading files already on disk
 
@@ -139,8 +149,6 @@ this contract. Loading a pickle runs code, so don't exchange those files
 between programs.
 
 ## Versioning
-
-Draft, pending sign-off:
 
 - **Version 2** is any change a version 1 reader would misread: key names,
   tensor shape or dtype, the hidden-state numbering, the token frame, or the

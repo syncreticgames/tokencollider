@@ -40,7 +40,8 @@ from pathlib import Path
 
 import numpy as np
 
-from .conditioning import Conditioning
+from .conditioning import Conditioning, check_frame
+from . import provenance
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff"}
 TEXT_EMBEDDING_VERSION = 1
@@ -215,10 +216,26 @@ def write_cache(dataset: Path, embedder, anchors: list[Path], arch: str,
     if alternates and not jumpstart:
         raise SystemExit("[tokencollider] alternates are teacher sidecars, which only "
                          "the jumpstart layout writes")
+    # The caption must land in the frame the trainer's own encoder pass would
+    # produce. For krea2 that drops the system prefix, which is the export
+    # trim the profile already applies; for zimage it is 0.
+    trim_fn = getattr(embedder, "export_trim", None)
+    trim = int(trim_fn()) if trim_fn is not None else 0
     anchor_conds = []
     anchor_meta = {}
     for i, p in enumerate(anchors):
         cond, meta = load_anchor(p)
+        # An anchor is concatenated after captions this embedder makes, so it
+        # must come from the same frame (docs/export-format.md).
+        try:
+            # The same config the export wrote, read the same way.
+            config = provenance.embedder_config(embedder)
+            for note in check_frame(cond, meta, template=config["template"],
+                                    layers=embedder.sampler_layers(),
+                                    prefix_tokens=trim, model=config["model"]):
+                print(f"[tokencollider] note: {p.name}: {note}")
+        except ValueError as e:
+            raise SystemExit(f"[tokencollider] {p} doesn't fit this profile: {e}")
         anchor_conds.append(cond)
         anchor_meta[f"anchor_{i}"] = json.dumps(
             {"path": str(p), "universe": meta.get("universe"),
@@ -232,11 +249,6 @@ def write_cache(dataset: Path, embedder, anchors: list[Path], arch: str,
         raise SystemExit(f"[tokencollider] no images found in {dataset}")
     cache_dir = dataset / "_t_e_cache"
     cache_dir.mkdir(exist_ok=True)
-    # The caption must land in the frame the trainer's own encoder pass would
-    # produce. For krea2 that drops the system prefix, which is the export
-    # trim the profile already applies; for zimage it is 0.
-    trim_fn = getattr(embedder, "export_trim", None)
-    trim = int(trim_fn()) if trim_fn is not None else 0
 
     # One dropout caption for the whole dataset, so embed it once. Skipped
     # when it hashes to the same file as a real caption (a dataset with no

@@ -74,6 +74,43 @@ def blend_tokens(tensors: list[np.ndarray], weights,
     return (out * scale[:, None]).astype(np.float32)
 
 
+def check_frame(cond: "Conditioning", meta: dict, *, template: str,
+                layers, prefix_tokens: int, model: str | None = None) -> list[str]:
+    """The reader's check from docs/export-format.md ("Which fields a reader
+    checks"), for a reader that knows the model it feeds.
+
+    Refuses (ValueError) when the file was made in a different frame: another
+    prompt template, other hidden-state layers, or another prefix trim. Its
+    tokens then sit in positions the sampler never produces. A different
+    `model` only warns, the way a universe file does: the field is a weights
+    path, which differs between machines and between packagings of one
+    model, and a finetune beside its base is a supported comparison.
+
+    Fields missing from older files can't be checked; each is a warning.
+    Returns the warnings for the caller to print."""
+    problems, warnings = [], []
+    if "template" not in meta:
+        warnings.append("no template recorded, so the frame can't be checked")
+    elif meta["template"] != template:
+        problems.append(f"template: file={meta['template']!r}  reader={template!r}")
+    if layers is not None:
+        layers = tuple(int(l) for l in layers)
+        if len(cond) > 1 or _infer_depth(meta.get("layer")) is not None:
+            if cond.layers != layers:
+                problems.append(f"layers: file={list(cond.layers)}  reader={list(layers)}")
+        else:
+            warnings.append("single-layer file with no layer recorded; "
+                            "its layer can't be checked")
+    if "template_prefix_tokens" in meta and int(meta["template_prefix_tokens"]) != int(prefix_tokens):
+        problems.append(f"template_prefix_tokens: file={meta['template_prefix_tokens']}  "
+                        f"reader={int(prefix_tokens)}")
+    if problems:
+        raise ValueError("made in a different frame:\n  " + "\n  ".join(problems))
+    if model is not None and "model" in meta and str(meta["model"]) != str(model):
+        warnings.append(f"made with model {meta['model']!r}, reading with {model!r}")
+    return warnings
+
+
 class Conditioning:
     """Per-token hidden states at one or more layers.
 

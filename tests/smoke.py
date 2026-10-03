@@ -249,6 +249,9 @@ def test_bridge_cache():
             def export_trim(self):
                 return self.PREFIX
 
+            def sampler_layers(self):
+                return (2, 5, 35)
+
             def conditioning(self, text):
                 base = self.conditioning_tokens(text)
                 # Small offsets: the cache is bf16, whose resolution near 35
@@ -504,6 +507,30 @@ def test_data_paths():
             assert paths.home() == Path.home() / "Library/Application Support/TokenCollider"
     print("ok: data paths (checkout, installed per platform, TOKENCOLLIDER_HOME)")
 
+def test_bridge_refuses_an_anchor_from_another_frame():
+    """docs/export-format.md: the bridge knows its model, so an anchor
+    exported under another template can't be appended to its captions."""
+    from tokencollider import bridge
+    from tokencollider.conditioning import Conditioning
+    from tokencollider.embedder import FakeEmbedder
+
+    with tempfile.TemporaryDirectory() as d:
+        dataset = Path(d) / "set"
+        dataset.mkdir()
+        (dataset / "a.png").write_bytes(b"fake")
+        fake = FakeEmbedder(dim=64)
+        anchor = Path(d) / "other.safetensors"
+        Conditioning.single(fake.conditioning_tokens("x"), fake.n_layers - 1).save(
+            str(anchor), {"template": "<other>{}</other>",
+                          "layer": str(fake.n_layers - 1)}, framework="np")
+        try:
+            bridge.write_cache(dataset, fake, [anchor], "zimage")
+            raise AssertionError("an anchor from another template was accepted")
+        except SystemExit as e:
+            assert "template" in str(e), e
+    print("ok: the bridge refuses an anchor exported in another frame")
+
+
 if __name__ == "__main__":
     test_store_roundtrip()
     test_store_forget_large_batch()
@@ -514,6 +541,7 @@ if __name__ == "__main__":
     test_store_vectors_for()
     test_provenance_roundtrip()
     test_bridge_cache()
+    test_bridge_refuses_an_anchor_from_another_frame()
     test_bridge_dropout_pair()
     test_bridge_alternate_anchors()
     test_cli_parsing()

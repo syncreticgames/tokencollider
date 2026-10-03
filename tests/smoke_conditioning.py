@@ -776,6 +776,46 @@ def test_prefix_rows_copied_not_scaled():
     print("ok: blend copies the shared prefix rows instead of scaling them")
 
 
+def test_check_frame():
+    """docs/export-format.md: a reader that knows its model refuses a file
+    from another frame (template, layers, prefix trim) and warns on another
+    model or on fields an old file lacks."""
+    from tokencollider.conditioning import check_frame
+
+    t = np.zeros((3, 4), dtype=np.float32)
+    stack = Conditioning({2: t, 5: t})
+    good = {"template": "T{}", "model": "a.safetensors", "template_prefix_tokens": "4",
+            "layers": "[2, 5]"}
+    assert check_frame(stack, good, template="T{}", layers=(2, 5), prefix_tokens=4,
+                       model="a.safetensors") == []
+    for field, bad, layers, prefix in (
+            ("template", {**good, "template": "U{}"}, (2, 5), 4),
+            ("layers", good, (2, 5, 8), 4),
+            ("template_prefix_tokens", good, (2, 5), 0)):
+        try:
+            check_frame(stack, bad, template="T{}", layers=layers, prefix_tokens=prefix)
+            raise AssertionError(f"{field} mismatch accepted")
+        except ValueError as e:
+            assert field in str(e), (field, e)
+    notes = check_frame(stack, good, template="T{}", layers=(2, 5), prefix_tokens=4,
+                        model="elsewhere/a-finetune")
+    assert len(notes) == 1 and "model" in notes[0], notes
+    # A single-layer file names its layer in "layer"; an old one may not.
+    one = Conditioning.single(t, 35)
+    assert check_frame(one, {"template": "T{}", "layer": "35"}, template="T{}",
+                       layers=(35,), prefix_tokens=0) == []
+    try:
+        check_frame(one, {"template": "T{}", "layer": "35"}, template="T{}",
+                    layers=(20,), prefix_tokens=0)
+        raise AssertionError("single-layer mismatch accepted")
+    except ValueError:
+        pass
+    old = check_frame(Conditioning.single(t, 0), {}, template="T{}", layers=(35,),
+                      prefix_tokens=0)
+    assert len(old) == 2, old  # no template, no layer: loads, with notes
+    print("ok: export readers refuse another frame and warn on another model")
+
+
 if __name__ == "__main__":
     test_value_type()
     test_file_format()
@@ -793,5 +833,6 @@ if __name__ == "__main__":
     test_light_warm_stays_light()
     test_layer_count_comes_from_config()
     test_prefix_rows_copied_not_scaled()
+    test_check_frame()
     test_cook_capture_range()
     print("all conditioning tests passed")
