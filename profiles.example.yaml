@@ -1,0 +1,25 @@
+# Template for profiles.yaml (gitignored). Model locations are per machine,
+# so they live here; what is known about each model is in
+# tokencollider/builtin_profiles.yaml, which this file overlays and extends.
+#
+# Each setting resolves from the command line flag (--profile, --layer), then
+# TOKENCOLLIDER_<PROFILE>_<SETTING> in the environment, then this file, then the
+# built-in profile. Nothing is shared across profiles.
+
+profiles:
+
+  zimage:
+    model: /path/to/qwen_3_4b.safetensors
+
+  krea2:
+    model: /path/to/qwen3vl_4b_fp8_scaled.safetensors
+    # A bare encoder file carries no config or tokenizer.
+    config_dir: /path/to/qwen3_vl_4b_instruct_config
+
+  # A finetune inherits every convention from its base with `extends`.
+  #krea2-finetune:
+  #  extends: krea2
+  #  model: /path/to/qwen3vl-4b-finetune
+
+# The profile used when none is named. There is no built-in default.
+default: zimage

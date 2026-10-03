@@ -1,0 +1,6 @@
+marble
+bronze
+obsidian
+jade
+amber
+granite

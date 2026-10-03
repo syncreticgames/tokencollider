@@ -1,0 +1,54 @@
+# Built-in model profiles: what is known about how a diffusion model reads
+# its text encoder. Same schema as profiles.yaml, which overlays and extends
+# these. Nothing in the code is specific to either model; a new model is a
+# new entry here or in profiles.yaml.
+#
+#   template              the context the phrase is embedded in; {} is the slot
+#   sampler_layers        hidden-state indices the diffusion model reads
+#                         (omitted: the one layer `layer` resolves to)
+#   layer                 the layer or band 'lo-hi' the viewport charts
+#   layer_min, layer_max  viewport slider bounds
+#   trim_template_prefix  the sampler drops the template's leading tokens
+#   config_repo           local HF cache fallback for config and tokenizer
+#   trainer_arch          ai-toolkit arch the bridge writes caches for
+
+profiles:
+
+  # Z-Image: Qwen3-4B. Verified 08222026 against ComfyUI's
+  # comfy/text_encoders/z_image.py, which hands the sampler the tokens as
+  # they are, with no template slice.
+  zimage:
+    template: "<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n"
+    # Raw hidden state 35, ComfyUI's layer_idx=-2, the pre-norm state.
+    layer: "35"
+    # Below 18 is linguistics, above 34 autoregressive mechanics. 35 is
+    # included because it is the charted layer and the slice `warm` writes.
+    layer_min: 18
+    layer_max: 35
+    trim_template_prefix: false
+    config_repo: Qwen/Qwen3-4B
+    trainer_arch: zimage
+
+  # Krea 2: Qwen3-VL-4B. Verified 08222026 against ComfyUI's
+  # comfy/text_encoders/krea2.py and diffusers' Krea2Pipeline (v0.40.0),
+  # which agree on the scaffold and the layer list.
+  krea2:
+    template: "<|im_start|>system\nDescribe the image by detailing the color, shape, size, texture, quantity, text, spatial relationships of the objects and background:<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n"
+    # The DiT's text-fusion stage reads all twelve and mixes them with
+    # cross-layer attention and a learned Linear(12 -> 1).
+    sampler_layers: [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35]
+    # The projector's positive weight sits mid-stack (L8 to L20, peaking at
+    # L14); L20 is where nearly every selected layer attends.
+    layer: "20"
+    layer_min: 8
+    layer_max: 35
+    # ComfyUI slices out[:, :, template_end:], template_end being the
+    # <|im_start|> that opens the user turn plus 3: token 34 here, stable
+    # because a special token precedes the slot. The trailing turn is kept.
+    trim_template_prefix: true
+    # Qwen3-VL is rarely in the HF cache, so no config_repo: a bare encoder
+    # file needs a config_dir.
+    trainer_arch: krea2
+    notes:
+      - "Exports carry twelve tensors, so the conditioning cache grows twelvefold per phrase against a single-layer model."
+      - "Encoding drops the scaffold's own tokens, which is what pooling over the phrase span already does."

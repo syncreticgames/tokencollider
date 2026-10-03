@@ -1,0 +1,64 @@
+# ai-toolkit job for the tokencollider_jumpstart extension. The dataset's text
+# embedding cache is the one `tokencollider bridge --jumpstart` writes.
+job: extension
+config:
+  name: jumpstart
+  process:
+    - type: tokencollider_jumpstart
+      jumpstart:
+        # 1.0: the target is the base model's anchored prediction. Above 1.0
+        # the target moves further along the direction away from the
+        # caption-only prediction. Costs one extra no-grad forward per step.
+        anchor_guidance: 1.0
+      training_folder: output
+      device: cuda:0
+      network:
+        type: lora
+        linear: 16
+        linear_alpha: 16
+      save:
+        dtype: bf16
+        save_every: 100
+        max_step_saves_to_keep: 3
+      datasets:
+        - folder_path: /path/to/dataset
+          caption_ext: txt
+          cache_text_embeddings: true
+          # The bridge writes the blank caption's student/teacher pair, so
+          # dropout works with cached embeddings.
+          caption_dropout_rate: 0.0
+          resolution: [512, 768, 1024]
+      train:
+        batch_size: 1
+        steps: 300
+        gradient_accumulation: 1
+        train_unet: true
+        train_text_encoder: false
+        gradient_checkpointing: true
+        noise_scheduler: flowmatch
+        optimizer: adamw8bit
+        lr: 1e-4
+        dtype: bf16
+        # Either of these reroutes the loss target; the trainer refuses them.
+        diff_output_preservation: false
+        blank_prompt_preservation: false
+      model:
+        # A bf16 reference-layout file. The fp8-scaled ComfyUI file's scale
+        # keys fail the strict load.
+        name_or_path: /path/to/krea2_raw_bf16.safetensors
+        arch: krea2
+        quantize: true
+        model_kwargs:
+          # Read from model_kwargs only. Used for sample prompts when
+          # embeddings are cached.
+          text_encoder_path: /path/to/Qwen3-VL-4B-Instruct
+      sample:
+        sampler: flowmatch
+        sample_every: 100
+        width: 1024
+        height: 1024
+        prompts:
+          - "a photo"
+        seed: 42
+        guidance_scale: 1
+        sample_steps: 8

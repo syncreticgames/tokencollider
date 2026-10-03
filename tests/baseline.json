@@ -1,0 +1,15 @@
+{
+  "bent_tool_mass": 0.332832,
+  "free_cold_mass": -0.333332,
+  "free_error": 0.0,
+  "free_tool_mass": -0.333332,
+  "image_peak": 26,
+  "inserter_26_drift": 0.364432,
+  "inserter_8_drift": 0.42118,
+  "negativity_alignment": 1.0,
+  "strict_cold_mass": -0.284266,
+  "strict_error": 0.164438,
+  "strict_tool_mass": 0.0,
+  "text_peak": 18,
+  "unbent_tool_mass": 0.666668
+}

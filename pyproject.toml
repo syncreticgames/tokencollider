@@ -1,0 +1,25 @@
+[project]
+name = "tokencollider"
+version = "0.1.0"
+description = "Explore a text encoder's embedding space by landmarks and universes, with layer scrubbing and a Godot viewport"
+license = "MIT"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy",
+    "torch",
+    "transformers",
+    "safetensors",
+    "pyyaml",
+    "pillow>=12.3.0",
+]
+
+[project.scripts]
+tokencollider = "tokencollider.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.8,<1"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "tokencollider"
+module-root = ""

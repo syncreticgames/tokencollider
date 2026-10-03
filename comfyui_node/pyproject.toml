@@ -1,0 +1,12 @@
+[project]
+name = "comfyui-tokencollider"
+description = "Load TokenCollider conditioning exports as CONDITIONING, including twelve-layer Krea 2 stacks and sigma-scheduled stacks."
+version = "1.0.0"
+license = "MIT"
+dependencies = ["safetensors"]
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "TokenCollider"
+Icon = ""
+includes = []

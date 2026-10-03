@@ -1,0 +1,101 @@
+# TokenCollider
+
+A viewer for the embedding space of a language-model text encoder: the
+decoder-only LLM that a growing number of diffusion models read their
+conditioning from, often at several hidden layers at once. Phrases become
+**landmarks** in a 3D Godot viewport, grouped into **universes**, and the
+encoder's layers can be scrubbed to see how meaning gets built. A point in the
+viewport can be read back as words (the nearest cached phrases) or written out
+as a conditioning tensor in the diffusion model's own frame.
+
+No model is wired into the core. A diffusion model's conventions are a
+profile, which is data: the prompt template the phrase is wrapped in, the
+hidden layers the sampler reads, and whether the sampler drops the template's
+leading tokens. What the core does assume is a kind of model:
+
+- **A decoder-only language model** that transformers can build from the
+  checkpoint's own config (Qwen, Llama, Mistral and similar). Encoders like
+  T5 or CLIP are a different architecture and are not supported.
+- **The usual decoder layout** (`layers`, `rotary_emb`, `norm`) for exports
+  that run a blend forward through the encoder's later layers. A model laid
+  out differently still embeds and exports, and refuses only that step.
+- **Qwen-VL style image tokens** for image landmarks. Text needs none.
+- **Llama-style key names** in a single-file checkpoint, the ComfyUI layout.
+  A Hugging Face model directory loads whatever its config names.
+
+The free-VRAM check is sized from the checkpoint's own weights.
+
+Two profiles are built in, in `tokencollider/builtin_profiles.yaml`, and they are the
+two the tool has been run against:
+
+- `zimage`: Qwen3-4B, the text encoder for [Z-Image](https://github.com/Tongyi-MAI/Z-Image). One layer.
+- `krea2`: Qwen3-VL-4B, the text encoder for [Krea 2](https://www.krea.ai). Twelve layers, and images as
+  well as text.
+
+A *universe* is a list of phrases that defines a local metric. Its embeddings
+are centred on their mean, which removes whatever all members share. The top
+principal components are the directions the universe actually varies along,
+and similarity is measured inside that subspace. So a question like "is Link
+closer to Mario than to Donkey Kong?" has two answers:
+
+- **raw**: cosine similarity in the full embedding space.
+- **relative**: cosine similarity in the universe's own coordinates.
+
+Where the two disagree, the universe is changing the answer.
+
+## Layout
+
+The core. Its code names no model; what it knows about one comes from a
+profile:
+
+- `tokencollider/`: the Python side. It owns the encoder, the SQLite embedding cache and a
+  loopback-only HTTP sidecar, and provides the `tokencollider` command.
+- `frontend/`: the Godot 4 viewport. Its structure is in
+  [frontend/ARCHITECTURE.md](frontend/ARCHITECTURE.md).
+- `universes/`: sample phrase lists.
+- `tests/`: model-free test suites and a metric baseline, plus
+  `tests/real_model.py`, which runs the two built-in profiles on real weights.
+
+Integrations, each written for particular models or tools:
+
+- `comfyui_node/`: [ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes
+  that load exported conditionings. A single-layer export loads as is. A
+  multi-layer stack is fused the way ComfyUI's Krea 2 encoder fuses it, the
+  only multi-layer layout the node knows.
+- `tokencollider bridge` (`tokencollider/bridge.py`) and `trainers/`: pre-write
+  [ai-toolkit](https://github.com/ostris/ai-toolkit)'s text-embedding cache
+  and distil an export into a LoRA. They write ai-toolkit's `zimage` and
+  `krea2` cache formats, so they work for profiles that declare one of those
+  as their `trainer_arch`.
+- `tools/pack_encoder.py`: packs a sharded Qwen3-VL-4B into the single-file
+  layout ComfyUI's Krea 2 loader reads.
+
+Further reading:
+
+- [docs/design.md](docs/design.md): design notes and how the two halves fit.
+- [docs/vocabulary.md](docs/vocabulary.md): the project's terms.
+- [docs/security.md](docs/security.md): what the sidecar exposes and refuses.
+- [docs/credits.md](docs/credits.md): licences and what each dependency asks.
+
+## Built on
+
+- **[Godot Engine](https://godotengine.org)** (MIT) is the viewport.
+- **[ComfyUI](https://github.com/comfyanonymous/ComfyUI)** by comfyanonymous
+  (GPL-3.0) is the renderer the exports are built for.
+- **[ai-toolkit](https://github.com/ostris/ai-toolkit)** by
+  [Ostris](https://github.com/ostris) (MIT). The trainer extension is built on
+  its caching and its `SDTrainer`.
+- **[Qwen3-VL-4B](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct)** and
+  **[Qwen3-4B](https://huggingface.co/Qwen/Qwen3-4B)** by Alibaba's Qwen team
+  are the encoders the built-in profiles load.
+- **Krea 2** by Krea and **Z-Image** by Tongyi MAI are the diffusion models the
+  built-in profiles target.
+- **[PyTorch](https://pytorch.org)**,
+  **[transformers](https://github.com/huggingface/transformers)**,
+  **[safetensors](https://github.com/huggingface/safetensors)**,
+  **[numpy](https://numpy.org)**, **[Pillow](https://python-pillow.org)** and
+  **[PyYAML](https://pyyaml.org)**.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).

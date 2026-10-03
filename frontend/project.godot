@@ -1,0 +1,12 @@
+config_version=5
+
+[application]
+
+config/name="TokenCollider"
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.3")
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+environment/defaults/default_clear_color=Color(0.05, 0.06, 0.09, 1)

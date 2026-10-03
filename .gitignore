@@ -1,0 +1,31 @@
+# Privacy-critical: the cache and exports carry every embedded phrase in
+# plaintext (and vectors decode back to text). Never commit them.
+embeddings.db
+exports/
+.env
+
+.venv/
+__pycache__/
+frontend/.godot/
+
+# Machine-local model paths (see profiles.example.yaml).
+profiles.yaml
+
+# Editor and tool scratch.
+CLAUDE.md
+.claude/
+.cursor/
+.idea/
+.vscode/
+
+# Local experiment output.
+exports/**
+universes/session_*.txt
+*.log
+
+# Python build artefacts.
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
