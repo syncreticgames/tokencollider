@@ -60,6 +60,8 @@ jobs:
           uv build --wheel
           unzip -l dist/*.whl | grep -q 'tokencollider/web/index.wasm' || {
             echo "the wheel is missing the web build"; exit 1; }
+          unzip -l dist/*.whl | grep -q 'dist-info/licenses/LICENSE' || {
+            echo "the wheel is missing LICENSE"; exit 1; }
 
       - name: Attach the wheel to the release
         env:
