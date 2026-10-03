@@ -641,6 +641,32 @@ def test_server_refuses_hostile_requests():
     code, _ = raw({"coords": coords}, {**JSON, "Origin": f"http://127.0.0.1:{port}"})
     assert code == 200, f"own page refused: {code}"
 
+    # Content-Length: refused before any read, and a client that promises a
+    # body it never sends stalls only its own request, not the lock.
+    import socket
+
+    def raw_post(length_header):
+        with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+            sock.sendall((f"POST /landmarks HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n"
+                          f"Content-Type: application/json\r\n{TOKEN_HEADER}: {TOKEN}\r\n"
+                          f"Content-Length: {length_header}\r\n\r\n").encode())
+            return sock.recv(4096).decode("latin-1").split(" ", 2)[1]
+    assert raw_post("-1") == "400", "negative Content-Length not refused"
+    assert raw_post("abc") == "400", "non-numeric Content-Length not refused"
+    assert raw_post(str(10**12)) == "400", "huge Content-Length not refused"
+    staller = socket.create_connection(("127.0.0.1", port), timeout=5)
+    staller.sendall((f"POST /landmarks HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n"
+                     f"Content-Type: application/json\r\n{TOKEN_HEADER}: {TOKEN}\r\n"
+                     f"Content-Length: 100\r\n\r\n").encode())
+    try:
+        import time as _time
+        _time.sleep(0.2)  # let the staller's handler start reading
+        t0 = _time.monotonic()
+        assert get("/layout", AUTH)[0] == 200
+        assert _time.monotonic() - t0 < 3, "a stalled body held the server lock"
+    finally:
+        staller.close()
+
     # The web build: no token, right types, nothing outside the listing.
     code, ctype, page = get("/")
     assert code == 200 and ctype.startswith("text/html") and b"viewport" in page
@@ -657,8 +683,8 @@ def test_server_refuses_hostile_requests():
     assert not Path("/tmp/pwned.safetensors").exists()
     assert not Path("/tmp/pwn.safetensors").exists()
     server.shutdown()
-    print("ok: server refuses CSRF, missing tokens, foreign Origin and Host, "
-          "stray static paths, and escaping export paths")
+    print("ok: server refuses CSRF, missing tokens, foreign Origin and Host, bad "
+          "Content-Length, stray static paths, and escaping export paths")
 
 
 def test_ragged_phrases_blend_tail_to_tail():

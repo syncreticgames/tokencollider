@@ -118,6 +118,8 @@ FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 # tools/export_web.sh. Absent, `view` falls back to desktop Godot.
 WEB_DIR = Path(__file__).resolve().parent / "web"
 TOKEN_HEADER = "X-TokenCollider-Token"
+# The largest request body accepted. Real ones are a few kilobytes of JSON.
+MAX_BODY = 1 << 20
 # The web export's file types. .wasm must be application/wasm or the browser
 # refuses to stream-compile it.
 WEB_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript",
@@ -561,8 +563,18 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
             if ctype.lower() != "application/json":
                 raise PermissionError(
                     "POST requires Content-Type: application/json")
-            length = int(self.headers.get("Content-Length", 0))
-            return json.loads(self.rfile.read(length)) if length else {}
+            # rfile.read(-1) waits for the client to hang up, and a huge length
+            # allocates whatever it says. Both are refused before any read.
+            raw = self.headers.get("Content-Length") or "0"
+            if not raw.isdigit():
+                raise ValueError(f"bad Content-Length {raw!r}")
+            length = int(raw)
+            if length > MAX_BODY:
+                raise ValueError(f"body of {length} bytes is over the {MAX_BODY}-byte limit")
+            body = json.loads(self.rfile.read(length)) if length else {}
+            if not isinstance(body, dict):
+                raise ValueError("the body must be a JSON object")
+            return body
 
         def _dispatch(self, handle) -> None:
             """Run one request under the server lock and answer every failure.
@@ -615,10 +627,19 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
             self._dispatch(lambda: self._get(url))
 
         def do_POST(self):
-            def handle():
+            # Guard and read the body BEFORE taking the server lock. A client
+            # that promises more bytes than it sends then stalls only its own
+            # thread, not every other request.
+            try:
                 self._guard()
-                self._post()
-            self._dispatch(handle)
+                body = self._body()
+            except PermissionError as e:
+                self._send(403, {"error": str(e)})
+                return
+            except (ValueError, TypeError) as e:
+                self._send(400, {"error": f"{type(e).__name__}: {e}"})
+                return
+            self._dispatch(lambda: self._post(body))
 
         def _get(self, url) -> None:
             if url.path == "/layout":
@@ -638,8 +659,7 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
             else:
                 self._send(404, {"error": f"unknown path {url.path}"})
 
-        def _post(self) -> None:
-            body = self._body()
+        def _post(self, body: dict) -> None:
             layer = parse_layer(body.get("layer"))
             axes = parse_axes(body.get("axes"))
             # The centre cursor names the landmark mean exactly, not its
