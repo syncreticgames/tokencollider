@@ -412,11 +412,53 @@ def test_pack_encoder():
     print("ok: pack_encoder merges shards into ComfyUI's layout (and refuses junk)")
 
 
+def test_unsupported_fp8_formats_are_refused():
+    """Only per-tensor `.weight_scale` fp8 is understood. Block scales
+    (`weight_scale_inv`), ComfyUI's older `scale_weight`, and fp8 weights
+    with no scale at all must be refused, not cast to bf16 unscaled, which
+    gives a file that loads and holds garbage."""
+    import importlib.util
+    from safetensors.torch import save_file
+
+    spec = importlib.util.spec_from_file_location(
+        "packer", Path(__file__).resolve().parent.parent / "tools" / "pack_encoder.py")
+    packer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(packer)
+
+    w = torch.zeros(16, 8).to(torch.float8_e4m3fn)
+    cases = {
+        "block scales": {"model.layers.0.mlp.up_proj.weight": w,
+                         "model.layers.0.mlp.up_proj.weight_scale_inv": torch.ones(1, 1)},
+        "old comfy scale": {"model.layers.0.mlp.up_proj.weight": w,
+                            "model.layers.0.mlp.up_proj.scale_weight": torch.tensor(2.0)},
+        "no scale": {"model.layers.0.mlp.up_proj.weight": w},
+    }
+    with tempfile.TemporaryDirectory() as d:
+        for what, tensors in cases.items():
+            path = Path(d) / f"{what.replace(' ', '_')}.safetensors"
+            save_file(tensors, str(path))
+            try:
+                packer.read_tensors([path])
+                raise AssertionError(f"pack_encoder accepted {what}")
+            except SystemExit as e:
+                assert "scale" in str(e), (what, e)
+        # The text tower's own loader: no scale at all has no other tell.
+        emb, store = make_embedder(Path(d) / "no_scale.safetensors")
+        try:
+            emb._read_state(torch.bfloat16)
+            raise AssertionError("the embedder loaded unscaled fp8")
+        except RuntimeError as e:
+            assert "weight_scale" in str(e), e
+        store.close()
+    print("ok: unsupported fp8 scale formats are refused, not cast unscaled")
+
+
 if __name__ == "__main__":
     test_pack_encoder()
     test_dequantizes_and_strips_prefix()
     test_unquantized_file_unchanged()
     test_untied_lm_head_is_dropped()
+    test_unsupported_fp8_formats_are_refused()
     test_orphan_scale_is_loud()
     test_skip_prefixes()
     test_vision_config_mismatch_guard()

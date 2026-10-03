@@ -548,6 +548,17 @@ class Embedder:
                         scales[name[: -len(SCALE_SUFFIX)]] = f.get_tensor(key)
                         continue
                     state[name] = f.get_tensor(key)
+        # An fp8 weight with no scale would be cast as is, giving garbage that
+        # still loads. Other scale formats show up as unexpected keys in the
+        # strict load, but a scale-less fp8 tensor has no such tell.
+        fp8 = (torch.float8_e4m3fn, torch.float8_e5m2)
+        unscaled = sorted(k for k, t in state.items()
+                          if t.dtype in fp8 and k[: -len(".weight")] not in scales)
+        if unscaled:
+            raise RuntimeError(
+                f"fp8 weights with no `.weight_scale` ({', '.join(unscaled[:3])}"
+                + (f" and {len(unscaled) - 3} more" if len(unscaled) > 3 else "")
+                + "): only per-tensor scaled fp8 checkpoints are supported")
         for base, scale in scales.items():
             key = f"{base}.weight"
             if key not in state:

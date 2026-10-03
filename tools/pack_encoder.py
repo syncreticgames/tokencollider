@@ -94,6 +94,24 @@ def read_tensors(files: list[Path], keep=lambda k: True) -> tuple[dict, int, int
                     dropped += 1
                     continue
                 out[name] = sf.get_tensor(key)
+    # Only the scalar `.weight_scale` convention is understood. Anything else
+    # that scales an fp8 weight (`weight_scale_inv` block scales, ComfyUI's
+    # older `scale_weight`, `input_scale`) would pass through as a stray key
+    # while its weight was cast without scaling: a file that check() passes
+    # and that holds garbage. Refuse both signs of it.
+    stray = sorted(k for k in out if "scale" in k.rsplit(".", 1)[-1])
+    if stray:
+        raise SystemExit(
+            f"unsupported fp8 scale format: {', '.join(stray[:3])}"
+            + (f" and {len(stray) - 3} more" if len(stray) > 3 else "")
+            + ". Only per-tensor `.weight_scale` checkpoints can be packed; "
+            "dequantize this one first, or use the bf16 release.")
+    fp8 = (torch.float8_e4m3fn, torch.float8_e5m2)
+    unscaled = sorted(k for k, t in out.items()
+                      if t.dtype in fp8 and k[: -len(".weight")] not in scales)
+    if unscaled:
+        raise SystemExit(f"fp8 weights with no `.weight_scale`: {', '.join(unscaled[:3])}"
+                         + (f" and {len(unscaled) - 3} more" if len(unscaled) > 3 else ""))
     for base, scale in scales.items():
         key = f"{base}.weight"
         if key not in out:
