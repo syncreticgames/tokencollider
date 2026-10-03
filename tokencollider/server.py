@@ -498,17 +498,17 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
         return payload
 
     def add_landmark_texts(texts: list[str], source: str = "manual") -> list[str]:
-        """Typed entries: a leading "@" (or an image path) means a picture,
-        a directory means every picture in it."""
+        """Typed entries: a leading "@" means a picture, or with a folder,
+        every picture in it. Anything else is a phrase, even when it happens
+        to name a file or folder: "tests" or "~" typed as words must never
+        make the sidecar scan the disk. Dropped files arrive with the "@"."""
         store = getattr(stack.embedder, "store", None)
         pooling = getattr(stack.embedder, "image_pooling", "image")
         keys = []
         for t in texts:
             t = str(t)
-            raw = t[1:].strip() if t.startswith("@") else t
-            if t.startswith("@") or (images.is_image_path(raw) and Path(raw).expanduser().exists()) \
-                    or Path(raw).expanduser().is_dir():
-                keys.extend(images.register_many(store, [raw], pooling))
+            if t.startswith("@"):
+                keys.extend(images.register_many(store, [t[1:].strip()], pooling))
             else:
                 keys.append(t)
         stack.add_landmarks(keys, source=source)

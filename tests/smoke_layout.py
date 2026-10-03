@@ -437,6 +437,13 @@ def test_http_server():
     pics = [e for e in lay_i["landmarks"] if e["kind"] == "image"]
     assert len(pics) == 1 and pics[0]["label"] == "sunset", pics
     assert pics[0]["text"].startswith("image:") and pics[0]["image"].startswith("/image/")
+    # Without "@", a path is just words: no disk read, no picture.
+    for bare in (str(pic_dir), str(pic_dir / "sea.jpg")):
+        status, lay_b = call("POST", "/landmarks", {"text": bare})
+        assert status == 200
+        entry_b = next(e for e in lay_b["landmarks"] if e["text"] == bare)
+        assert entry_b["kind"] == "phrase", entry_b
+        call("POST", "/landmarks/remove", {"text": bare})
     status, lay_i = call("POST", "/landmarks", {"text": "@" + str(pic_dir)})  # a directory: both
     assert status == 200
     pics = {e["label"]: e for e in lay_i["landmarks"] if e["kind"] == "image"}
