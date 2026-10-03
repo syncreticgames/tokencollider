@@ -218,7 +218,8 @@ def export_conditioning(stack: LayerStack, layer, coords, path: str | None,
                         fmt: str = "safetensors", band=None,
                         suffix: str = "", directory: Path | None = None,
                         mirror: bool = False,
-                        axes: str = "local", center: bool = False) -> dict:
+                        axes: str = "local", center: bool = False,
+                        tag: str = "", overwrite: bool = False) -> dict:
     session = stack.session(layer)
     basis = stack.basis(layer, axes)
     target = _center_target(stack, layer, center)
@@ -230,7 +231,9 @@ def export_conditioning(stack: LayerStack, layer, coords, path: str | None,
         # single layer the tensor was actually assembled at.
         dest = directory if directory is not None else EXPORT_DIR
         dest.mkdir(parents=True, exist_ok=True)
-        names = _nearest_names(session, coords, basis, target)
+        # `tag` marks every file of one stack export alike (`_stack<id>`), so
+        # a loader can tell one stack's files from another's in a folder.
+        names = _nearest_names(session, coords, basis, target) + tag
         key = stack.layer_key(layer).replace("-", "_")
         if blend.get("cooked"):
             stem = f"{names}_map{key}_cook{blend['band'][1]:02d}"
@@ -241,7 +244,7 @@ def export_conditioning(stack: LayerStack, layer, coords, path: str | None,
         if mirror:  # in every branch, so a negative never passes for a positive
             stem += "_mirror"
         out = dest / f"{stem}.{fmt}"
-        if out.exists():  # same neighborhood, different point: disambiguate
+        if out.exists() and not overwrite:  # same neighborhood, different point
             blob = b"".join(cond[l].tobytes() for l in cond.layers)
             digest = hashlib.sha256(blob).hexdigest()[:6]
             out = dest / f"{stem}_{digest}.{fmt}"
@@ -734,12 +737,21 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
                     # keep them out of the Load Conditioning Stack node's
                     # glob path (and out of stack filename collisions).
                     directory = root / "sweeps" if body.get("sweep") else root
-                    print(f"[tokencollider] export stack: inserters {depths} ...")
+                    # One id for the whole stack, from everything that decides
+                    # its tensors. The same request again rewrites the same
+                    # files (identical content) instead of scattering per-file
+                    # collision digests that would split the stack apart.
+                    sid = hashlib.sha256(json.dumps(
+                        [body["coords"], depths, stack.layer_key(layer), axes,
+                         bool(center), body.get("format", "safetensors"),
+                         sorted(stack.phrases)]).encode()).hexdigest()[:6]
+                    print(f"[tokencollider] export stack {sid}: inserters {depths} ...")
                     results = [export_conditioning(
                         stack, layer, body["coords"], None,
                         body.get("format", "safetensors"), (min(lo, d), d),
                         suffix=f"_cook{d:02d}", directory=directory,
-                        axes=axes, center=center)
+                        axes=axes, center=center,
+                        tag=f"_stack{sid}", overwrite=True)
                         for d in depths]
                     for r in results:
                         print(f"[tokencollider]   -> {r['path']}")

@@ -703,6 +703,27 @@ def test_comfy_stack_skips_mirrors():
             (20, "a_cook20.safetensors")], found
     print("ok: comfy stack loader keeps renamed cooks and leaves mirrors out")
 
+    # One stack per load: a folder of two stacks (or a stack beside a single
+    # cooked export) is refused by name; a glob picks one out.
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        for name in ("red_stack1a2b3c_map0_8_cook04.safetensors",
+                     "red_stack1a2b3c_map0_8_cook08.safetensors",
+                     "red_stackd4e5f6_map0_8_cook04.safetensors",
+                     "red_stackd4e5f6_map0_8_cook08.safetensors",
+                     "blue_map0_8_cook08.safetensors"):
+            (root / name).write_bytes(b"")
+        try:
+            node.LoadConditioningStack._matches(str(root))
+            raise AssertionError("a folder of three stacks was accepted")
+        except ValueError as e:
+            assert "3 different stacks" in str(e) and "red_stackd4e5f6_map0_8" in str(e), e
+        assert node.LoadConditioningStack.IS_CHANGED(str(root), 1, 0.0) != \
+            node.LoadConditioningStack.IS_CHANGED(str(root), 1, 0.0)  # NaN: re-run
+        found = node.LoadConditioningStack._matches(str(root / "red_stack1a2b3c_*"))
+        assert [n for n, _ in found] == [4, 8], found
+    print("ok: comfy stack loader refuses a folder of several stacks")
+
 
 if __name__ == "__main__":
     test_value_type()

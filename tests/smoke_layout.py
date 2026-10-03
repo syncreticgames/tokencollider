@@ -333,7 +333,21 @@ def test_http_server():
     assert stk["depths"] == sorted(stk["depths"], reverse=True)
     stack_paths = [r["path"] for r in stk["stack"]]
     assert len(set(stack_paths)) == 4
-    for p in stack_paths:
+    # one stack, one tag: every file shares the prefix before _cookNN
+    import re as _re
+    prefixes = {_re.sub(r"_cook\d+$", "", Path(p).stem) for p in stack_paths}
+    assert len(prefixes) == 1 and "_stack" in prefixes.pop(), stack_paths
+    # the same stack again rewrites its own files, no per-file digests
+    status, again = call("POST", "/export",
+                         {"coords": entry["coords"], "layer": [0, 8], "stack": True})
+    assert [r["path"] for r in again["stack"]] == stack_paths, again["stack"]
+    # a different cursor is a different stack, even in the same neighborhood
+    moved = [c + 0.05 for c in entry["coords"]]
+    status, other = call("POST", "/export",
+                         {"coords": moved, "layer": [0, 8], "stack": True})
+    other_paths = [r["path"] for r in other["stack"]]
+    assert not set(other_paths) & set(stack_paths), other_paths
+    for p in stack_paths + other_paths:
         assert "_cook" in Path(p).name
         Path(p).unlink()
     # stackless view (no band anywhere): degrades to a single export

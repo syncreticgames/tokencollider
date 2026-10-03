@@ -158,7 +158,7 @@ class LoadConditioningStack:
     """An inserter stack as ONE schedule-carrying conditioning.
 
     `pattern` is a glob over the stack's shared stem (the extension is
-    optional) or a directory. Inserters parse from the `_cookNN` filename
+    optional) or a directory holding exactly one stack. Inserters parse from the `_cookNN` filename
     suffix; the deepest cook (lowest NN, the encoder's furthest paraphrase)
     is gated onto the earliest sigmas, where composition is decided, and the
     shallowest onto the latest. Each entry carries its own start/end percent.
@@ -202,18 +202,34 @@ class LoadConditioningStack:
         # Mirrors are the negative half of a polarity pair and stay out.
         cook = re.compile(
             r"_cook(\d+)(_mirror)?(?:_[0-9a-f]{6})?(\.mirror)?\.safetensors$")
-        out = []
+        groups = {}
         for path in glob.glob(pattern):
-            m = cook.search(os.path.basename(path))
+            name = os.path.basename(path)
+            m = cook.search(name)
             if m and not (m.group(2) or m.group(3)):
-                out.append((int(m.group(1)), path))
+                groups.setdefault(name[:m.start()], []).append(
+                    (int(m.group(1)), path))
+        # One stack per load. Everything before `_cookNN` names a stack (the
+        # exporter tags each stack `_stack<id>`), so files from different
+        # cursors or exports never get sliced into one schedule.
+        if len(groups) > 1:
+            shown = ", ".join(sorted(groups)[:5])
+            more = f" and {len(groups) - 5} more" if len(groups) > 5 else ""
+            raise ValueError(
+                f"{pattern!r} holds {len(groups)} different stacks ({shown}{more}). "
+                f"Point at one with a glob like <folder>/<name>_cook*.")
+        out = next(iter(groups.values()), [])
         return sorted(out)  # ascending cook NN = deepest first
 
     @classmethod
     def IS_CHANGED(cls, pattern, repeat, overlap, layer=-1):
         import hashlib
         h = hashlib.sha256()
-        for _depth, path in cls._matches(pattern):
+        try:
+            matches = cls._matches(pattern)
+        except ValueError:
+            return float("nan")  # always re-run, so load() reports the problem
+        for _depth, path in matches:
             try:
                 with open(path, "rb") as f:
                     h.update(f.read())
