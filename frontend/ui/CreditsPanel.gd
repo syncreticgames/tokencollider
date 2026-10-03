@@ -21,6 +21,7 @@ MIT licensed. Copyright (c) 2026 Syncretic Games LLC.
 • ai-toolkit by Ostris (MIT) — trains the LoRAs
 • Qwen3-VL-4B / Qwen3-4B by Alibaba — the text encoders
 • Krea 2, Z-Image — the diffusion models
+• Oklab by Björn Ottosson — the colour space points are drawn in
 • PyTorch, transformers, safetensors, numpy, Pillow, PyYAML
 
 Full licence notes: docs/credits.md

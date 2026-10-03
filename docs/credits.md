@@ -102,4 +102,7 @@ is courtesy.
 - **Qwen3-VL-4B / Qwen3-4B** by Alibaba. The text encoders whose
   hidden states this tool explores.
 - **Krea 2** and **Z-Image**. The diffusion models the exports condition.
+- **[Oklab](https://bottosson.github.io/posts/oklab/)** by Björn Ottosson. The
+  perceptual colour space the viewport colours points in; its matrices are in
+  `tokencollider/oklab.py` and `frontend/lib/Oklab.gd`.
 - PyTorch, transformers, safetensors, numpy, Pillow, PyYAML.

@@ -1,6 +1,9 @@
 extends RefCounted
 ## sRGB <-> Oklab, and the z-score mapping the sidecar colours points with.
 ##
+## Oklab is Björn Ottosson's colour space, and the matrices here are his, from
+## https://bottosson.github.io/posts/oklab/ (the same reference oklab.py cites).
+##
 ## Mirrors `tokencollider/oklab.py`, which must produce the same numbers or a picked
 ## colour and the point it selects drift apart, invisibly, until an export
 ## lands somewhere the user did not aim.
