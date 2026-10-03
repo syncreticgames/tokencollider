@@ -397,8 +397,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="export to concat after every caption (repeatable)")
     p.add_argument("--trigger", default=None, help="trigger word")
     p.add_argument("--caption-ext", default=".txt")
-    p.add_argument("--default-caption", default="",
-                   help="caption for images with no caption file")
+    p.add_argument("--default-caption", default=None,
+                   help="caption for images whose caption file is missing or "
+                        "blank (ai-toolkit's default_caption)")
     p.add_argument("--jumpstart", action="store_true",
                    help="caption alone at the cache path, anchored version "
                         "as a .anchor sidecar")

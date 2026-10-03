@@ -198,11 +198,17 @@ def test_bridge_cache():
     from tokencollider import bridge
     from tokencollider.embedder import FakeEmbedder
 
-    # trigger injection mirrors ai-toolkit's semantics
+    # trigger injection matches ai-toolkit's inject_trigger_into_prompt
+    # (add_if_not_present), checked against its source at ecee894
     assert bridge.inject_trigger("a photo of [trigger] resting", "sks") == \
         "a photo of sks resting"
+    assert bridge.inject_trigger("[name] by the sea", "sks") == "sks by the sea"
     assert bridge.inject_trigger("a red door", "sks") == "sks a red door"
     assert bridge.inject_trigger("sks at dusk", "sks") == "sks at dusk"
+    assert bridge.inject_trigger("", "sks") == "sks "            # empty: still a space
+    assert bridge.inject_trigger("a [trigger] cat", None) == "a  cat"  # replaced with nothing
+    assert bridge.inject_trigger("a cat", "  ") == "a cat"       # blank trigger: not added
+    assert bridge.inject_trigger("a cat\n", "sks") == "sks a cat\n"  # caption as written
     # hash: deterministic, urlsafe, unpadded
     h = bridge.cache_hash("sks a red door", "zimage")
     assert h == bridge.cache_hash("sks a red door", "zimage") and "=" not in h
@@ -334,7 +340,7 @@ def test_bridge_dropout_pair():
     from tokencollider.conditioning import Conditioning
     from tokencollider.embedder import FakeEmbedder
 
-    assert bridge.dropout_caption("sks") == "sks"
+    assert bridge.dropout_caption("sks") == "sks "
     assert bridge.dropout_caption(None) == ""
 
     emb = FakeEmbedder(dim=32)
@@ -350,7 +356,7 @@ def test_bridge_dropout_pair():
         bridge.write_cache(root, emb, [anchor], "zimage", trigger="sks", jumpstart=True)
 
         cache = root / "_t_e_cache"
-        blank_hash = bridge.cache_hash("sks", "zimage")
+        blank_hash = bridge.cache_hash(bridge.dropout_caption("sks"), "zimage")  # "sks "
         for name in ("a", "b"):
             blank = cache / f"{name}_{blank_hash}.safetensors"
             assert blank.exists(), sorted(p.name for p in cache.iterdir())
@@ -362,7 +368,7 @@ def test_bridge_dropout_pair():
             with safe_open(str(sidecar), framework="np") as f:
                 meta = dict(f.metadata() or {})
                 assert "text_embed" in list(f.keys()), list(f.keys())
-            assert meta["caption"] == "sks" and meta["role"] == "teacher"
+            assert meta["caption"] == "sks " and meta["role"] == "teacher"
             assert int(meta["anchor_tokens"]) == 4, meta
             assert meta["dropout"] == "1", meta
     print("ok: bridge writes the dropout student/teacher pair")
@@ -637,6 +643,29 @@ def test_swapped_weights_are_caught():
     print("ok: weights swapped in at a cached model's path are refused until forgotten")
 
 
+def test_bridge_reads_captions_as_ai_toolkit_does():
+    """ai-toolkit hashes the caption file exactly as written (trailing newline
+    and all), and falls back to default_caption only for a blank or missing
+    file. A bridge that stripped captions wrote cache files ai-toolkit never
+    looked up, so it encoded the caption live, with no anchor."""
+    from tokencollider import bridge
+    from tokencollider.embedder import FakeEmbedder
+
+    with tempfile.TemporaryDirectory() as d:
+        dataset = Path(d) / "set"
+        dataset.mkdir()
+        for name, text in (("a", "a red apple\n"), ("b", "  \n"), ("c", None)):
+            (dataset / f"{name}.png").write_bytes(b"fake")
+            if text is not None:
+                (dataset / f"{name}.txt").write_text(text, encoding="utf-8")
+        names = {p.name for p in bridge.write_cache(
+            dataset, FakeEmbedder(dim=32), [], "zimage", default_caption="a fruit")}
+        for name, caption in (("a", "a red apple\n"), ("b", "a fruit"), ("c", "a fruit")):
+            assert f"{name}_{bridge.cache_hash(caption, 'zimage')}.safetensors" in names, \
+                (name, caption, sorted(names))
+    print("ok: the bridge reads captions exactly as ai-toolkit does")
+
+
 if __name__ == "__main__":
     test_store_roundtrip()
     test_store_forget_large_batch()
@@ -649,6 +678,7 @@ if __name__ == "__main__":
     test_bridge_cache()
     test_bridge_refuses_an_anchor_from_another_frame()
     test_bridge_caption_ext_without_dot()
+    test_bridge_reads_captions_as_ai_toolkit_does()
     test_jumpstart_teacher_cache_is_bounded()
     test_swapped_weights_are_caught()
     test_bridge_dropout_pair()

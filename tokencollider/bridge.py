@@ -89,14 +89,20 @@ def check_dialect(arch: str, embedder) -> str | None:
 
 
 def inject_trigger(caption: str, trigger: str | None) -> str:
-    """Replicates ai-toolkit's inject_trigger_into_prompt (add_if_not_present):
-    the trigger must be baked in BEFORE hashing, exactly as the trainer does."""
-    if not trigger:
-        return caption
-    if "[trigger]" in caption:
-        return caption.replace("[trigger]", trigger)
-    if trigger not in caption:
-        return f"{trigger} {caption}" if caption else trigger
+    """ai-toolkit's inject_trigger_into_prompt with add_if_not_present, as of
+    ai-toolkit ecee894 (toolkit/prompt_utils.py). The trigger is baked in
+    before hashing, exactly as the trainer does, or the hash differs and
+    ai-toolkit silently encodes the caption itself, with no anchor.
+
+    `[name]` and `[trigger]` are always replaced (with nothing when there's
+    no trigger). A trigger that still isn't in the caption is prepended with
+    a space, even to an empty caption, so the dropout caption for "sks" is
+    "sks ". A blank trigger is never added."""
+    trigger = trigger or ""
+    for token in ("[name]", "[trigger]"):
+        caption = caption.replace(token, trigger)
+    if trigger.strip() != "" and caption.count(trigger) == 0:
+        caption = trigger + " " + caption
     return caption
 
 
@@ -181,7 +187,7 @@ def _save_teachers(arch: str, student: Conditioning, anchors: list[Conditioning]
 
 def write_cache(dataset: Path, embedder, anchors: list[Path], arch: str,
                 trigger: str | None = None, caption_ext: str = ".txt",
-                default_caption: str = "",
+                default_caption: str | None = None,
                 jumpstart: bool = False, alternates: bool = False) -> list[Path]:
     """One cache file per image: concat(caption tokens, anchor tokens...), in
     the arch's file layout. Returns the written paths.
@@ -269,8 +275,15 @@ def write_cache(dataset: Path, embedder, anchors: list[Path], arch: str,
     written = []
     for img in images:
         caption_path = img.with_suffix(caption_ext)
-        caption = (caption_path.read_text(encoding="utf-8").strip()
-                   if caption_path.exists() else default_caption)
+        # As ai-toolkit's load_caption reads it (dataloader_mixins.py,
+        # ecee894): the file exactly as written, trailing newline included.
+        # Only a blank file, or a missing one, falls back to the default.
+        if caption_path.exists():
+            caption = caption_path.read_text(encoding="utf-8")
+            if caption.strip() == "" and default_caption is not None:
+                caption = default_caption
+        else:
+            caption = default_caption if default_caption is not None else ""
         caption = inject_trigger(caption, trigger)
         cap = embedder.conditioning(caption)
         if trim:
