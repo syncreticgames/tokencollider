@@ -12,8 +12,6 @@ frontend/.godot/
 profiles.yaml
 
 # Editor and tool scratch.
-CLAUDE.md
-.claude/
 .cursor/
 .idea/
 .vscode/
