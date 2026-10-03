@@ -531,6 +531,7 @@ class Embedder:
         import torch
         from safetensors import safe_open
 
+        FP8_DTYPES = (torch.float8_e4m3fn, torch.float8_e5m2)
         state, scales, skipped = {}, {}, 0
         for path in self.weight_files():
             with safe_open(str(path), framework="pt", device=self.device) as f:
@@ -547,13 +548,20 @@ class Embedder:
                     if name.endswith(SCALE_SUFFIX):
                         scales[name[: -len(SCALE_SUFFIX)]] = f.get_tensor(key)
                         continue
-                    state[name] = f.get_tensor(key)
+                    tensor = f.get_tensor(key)
+                    # Cast as each tensor arrives, not all at the end: an fp32
+                    # checkpoint held whole at fp32 on the GPU peaks at twice
+                    # what vram_needed gated for. fp8 waits for its scale
+                    # (it is smaller than the target anyway).
+                    if (tensor.is_floating_point() and tensor.dtype != dtype
+                            and tensor.dtype not in FP8_DTYPES):
+                        tensor = tensor.to(dtype)
+                    state[name] = tensor
         # An fp8 weight with no scale would be cast as is, giving garbage that
         # still loads. Other scale formats show up as unexpected keys in the
         # strict load, but a scale-less fp8 tensor has no such tell.
-        fp8 = (torch.float8_e4m3fn, torch.float8_e5m2)
         unscaled = sorted(k for k, t in state.items()
-                          if t.dtype in fp8 and k[: -len(".weight")] not in scales)
+                          if t.dtype in FP8_DTYPES and k[: -len(".weight")] not in scales)
         if unscaled:
             raise RuntimeError(
                 f"fp8 weights with no `.weight_scale` ({', '.join(unscaled[:3])}"

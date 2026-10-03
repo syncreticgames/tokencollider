@@ -453,12 +453,46 @@ def test_unsupported_fp8_formats_are_refused():
     print("ok: unsupported fp8 scale formats are refused, not cast unscaled")
 
 
+def test_fp32_checkpoint_peaks_at_target_size():
+    """Each tensor is cast to the target dtype as it is read. Holding a whole
+    fp32 checkpoint before casting peaked at twice what the VRAM gate allowed
+    for. Measured on the GPU, where the allocator records the peak; skipped
+    without one."""
+    if not torch.cuda.is_available():
+        print("skip: fp32 load peak (no CUDA device)")
+        return
+    from safetensors.torch import save_file
+
+    n, shape = 8, (1024, 1024)  # 8 x 4 MiB at fp32
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "f32.safetensors"
+        save_file({f"model.layers.{i}.mlp.up_proj.weight": torch.randn(shape)
+                   for i in range(n)}, str(path))
+        store = EmbeddingStore(Path(d) / "t.db")
+        emb = Embedder(store, model_name=str(path), layer="35", device="cuda",
+                       config_repo="Qwen/Qwen3-4B")
+        torch.cuda.synchronize()
+        torch.cuda.reset_peak_memory_stats()
+        base = torch.cuda.memory_allocated()
+        state, _n, _skip = emb._read_state(torch.bfloat16)
+        peak = torch.cuda.max_memory_allocated() - base
+        fp32_total = n * shape[0] * shape[1] * 4
+        assert all(t.dtype == torch.bfloat16 for t in state.values())
+        # bf16 total is half of fp32; allow one fp32 tensor in flight.
+        assert peak <= fp32_total / 2 + fp32_total / n + (1 << 20), (peak, fp32_total)
+        del state
+        torch.cuda.empty_cache()
+        store.close()
+    print("ok: an fp32 checkpoint loads without holding it whole at fp32")
+
+
 if __name__ == "__main__":
     test_pack_encoder()
     test_dequantizes_and_strips_prefix()
     test_unquantized_file_unchanged()
     test_untied_lm_head_is_dropped()
     test_unsupported_fp8_formats_are_refused()
+    test_fp32_checkpoint_peaks_at_target_size()
     test_orphan_scale_is_loud()
     test_skip_prefixes()
     test_vision_config_mismatch_guard()
