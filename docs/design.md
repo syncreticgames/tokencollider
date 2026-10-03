@@ -1,70 +1,61 @@
 # Design
 
-Design notes, what is planned, how the two halves fit.
+How TokenCollider is put together, and what's planned.
 
-[← TokenCollider README](../README.md)
+[← README](../README.md)
 
-## Design notes
+## Two halves
 
-- Standalone by design: Godot is the frontend, the sidecar the backend,
-  nothing else in the loop. Two outputs only: **words** and **tensors**.
-- Pooled vectors are the **navigation** representation; full per-token
-  tensors are the **export** representation. One forward pass feeds both
-  caches — at every layer (the marginal cost of keeping all layers is
-  pooling, so they're never thrown away).
-- The 3D GUI is a *view*; ground truth stays full-dimensional. Selection and
-  interrogation always happen in the real space.
-- Axis significance is ordered: PCA sorts axes by variance explained (per-axis
-  numbers in `GET /layout`'s `explained`); everything past dim 6 lives in
-  each point's `residual`.
-- A conditioning is an ordered map from hidden-state index to a `(seq, dim)`
-  array (`tokencollider/conditioning.py`). A single-layer model is the size-one case,
-  not a separate code path, and its file format is unchanged.
-- Per-model knowledge is data, not control flow (`tokencollider/builtin_profiles.yaml`,
-  overlaid by `profiles.yaml`). No model name appears in the code's logic,
-  and there is no default model. A finding about a model that turns out
-  wrong is an edit to a data file.
-- Anything whose geometry depends on model, layer, pooling, template, or
-  phrase set refuses to load under a different config rather than render
-  plausible nonsense.
-- Privacy: the cache, exports and saved universes carry every embedded
-  phrase in plaintext (and vectors decode back to text). Installed, they live
-  in the user data folder; in a checkout, `.gitignore` covers them. Keep both
-  true.
+- **The Python side** (`tokencollider/`) runs the encoder, keeps a SQLite
+  cache of embeddings, and serves an HTTP API on 127.0.0.1.
+- **The viewport** (`frontend/`) is a Godot 4 project. It runs in the browser
+  as a web export the Python side serves, or as a desktop app.
+
+They talk over that local API only. The viewport's code is described in
+[frontend/ARCHITECTURE.md](../frontend/ARCHITECTURE.md), and what the server
+accepts in [security.md](security.md).
+
+## Decisions
+
+- **One forward pass fills both caches.** Pooled vectors (one per phrase)
+  place phrases in the layout. Full per-token tensors are what exports are
+  made of. Every layer is kept, since keeping them costs little more than
+  pooling them.
+- **The 3D view is a projection.** Selecting and querying always happen in the
+  full embedding space. The six layout axes are the universe's top principal
+  components (`explained` in `GET /layout` gives each one's share of the
+  variance). What's left over is each point's `residual`.
+- **A conditioning is a map from layer to tensor.** A model that reads one
+  layer is the one-entry case of the same code (`tokencollider/conditioning.py`).
+- **Model knowledge is data.** Templates and sampler layers live in
+  `builtin_profiles.yaml` and `profiles.yaml`. The code names no model, and
+  there's no default model.
+- **Mismatched files are refused.** A saved universe or an export made under a
+  different model setup (template, layers, pooling) won't load into a session
+  where it would give wrong positions.
+- **Private data stays private.** The cache, exports and saved universes hold
+  every phrase in plain text. They live in the user data folder when
+  installed, and are gitignored in a checkout.
+
+## Integrations
+
+These are written for particular tools:
+
+- The ComfyUI nodes combine a multi-layer export the way ComfyUI's Krea 2
+  encoder does.
+- The ai-toolkit bridge and trainer write ai-toolkit's `zimage` and `krea2`
+  cache formats.
+- `tools/pack_encoder.py` packs Qwen3-VL-4B for ComfyUI.
 
 ## Planned
 
-- **Multi-layer authoring in the viewport**: layer stops being a view and
-  becomes a coordinate, so a Krea 2 export can be pinned per layer rather than
-  cooked from one chart.
-- **Selection and filtering controls** in the viewport: fade/hide landmarks
-  by selection actions (box-select and friends), so dense universes and
-  constellations can be pared down to the phrases under investigation.
-- **Finetune diffing** (`tokencollider diff`): per-phrase drift magnitudes between two
-  same-family models, neighbor-rank shifts ("base puts 'trees' nearest
-  'forest'; finetune says 'jungle'"), and drift-by-layer profiles to localize
-  which layers a finetune rebinds.
-- **Export all vectors**: bulk dump of the cached embeddings for external
-  analysis (the DB is already queryable SQLite in the meantime).
-- **Scaffold dedup in the cache**: 34 of a Krea 2 conditioning's 42 tokens
-  are byte-identical across phrases at a given layer; storing them once per
-  layer would cut cache size about fivefold.
-
-## Core and integrations
-
-- The core (`tokencollider/`, the viewport) names no model. What it knows about one
-  comes from a profile, and what it assumes is a kind of model: a
-  decoder-only language model transformers can build, the usual decoder
-  layout for exports that run a blend forward, Qwen-VL style image tokens
-  for image landmarks. The free-VRAM check is sized from the checkpoint.
-- The integrations are written for particular targets and say so: the
-  ComfyUI node fuses stacks the way Krea 2's encoder does, the ai-toolkit
-  bridge and trainer write ai-toolkit's `zimage` and `krea2` cache formats,
-  and `tools/pack_encoder.py` packs Qwen3-VL-4B for ComfyUI.
-
-## Shape of the project
-
-Two halves: a Python sidecar (the `tokencollider` package) that owns the encoder, the
-cache and the HTTP API, and a Godot frontend (`frontend/`) that owns the
-viewport. They talk over loopback only. Model files are read from wherever
-`profiles.yaml` points; exports are written for ComfyUI on the same machine.
+- **Multi-layer editing in the viewport.** Set a Krea 2 export's position
+  separately at each layer it carries.
+- **Hiding and filtering landmarks**, to thin out dense universes.
+- **`tokencollider diff`.** Compare two related models phrase by phrase: how
+  far each phrase moves, which neighbors change, and at which layers.
+- **Exporting all vectors** for outside analysis. Until then, the cache is a
+  plain SQLite file.
+- **Smaller cache for Krea 2.** 34 of a Krea 2 conditioning's 42 tokens are the
+  same for every phrase at a given layer. Storing them once would make the
+  cache about five times smaller.

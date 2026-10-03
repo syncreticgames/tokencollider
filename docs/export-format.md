@@ -1,11 +1,10 @@
 # Conditioning export format
 
 The file TokenCollider writes when it exports a point: per-token hidden states
-from the text encoder, in the frame the diffusion model's sampler reads. This
-page is the contract for any program that reads or writes these files. Code
-that disagrees with it is the bug.
+from the text encoder, laid out the way the diffusion model's sampler reads
+them. Programs that read or write these files should follow this page.
 
-[← TokenCollider README](../README.md)
+[← README](../README.md)
 
 **Format version: 1.**
 
@@ -68,18 +67,16 @@ concatenating along the token axis, layer by layer:
    after. Layer `i` of the result is the caption's layer `i` followed by the
    export's layer `i`.
 
-The export's layer indices are re-labeled to the caption's rather than read
-from its metadata, since both come from one profile by construction. A reader
-doing this pairing with an export from a different profile gets a tensor no
-sampler could produce.
+The export takes the caption's layer indices, since both come from the same
+profile. Pairing a caption with an export from a different profile gives a
+tensor no sampler could produce.
 
 ## Metadata
 
 Safetensors metadata is a map of strings; values marked JSON are JSON-encoded
 strings.
 
-What identifies the frame. These decide whether the tensors mean anything to
-a given model:
+These fields decide whether the tensors fit a given model:
 
 | Field | Value |
 |---|---|
@@ -91,7 +88,7 @@ a given model:
 | `layers` | JSON array of hidden-state indices; multi-layer files only |
 | `sampler_layer` | The hidden-state index of a single-layer file's tensor; single-layer files only, and absent from files written before 10/03/2026 |
 
-How the point was made. Provenance, not needed to load:
+These record how the point was made, and aren't needed to load the file:
 
 | Field | Value |
 |---|---|
@@ -119,10 +116,10 @@ before using the tensors:
   differ from the reader's. Its tokens sit in positions the sampler never
   produces. The layers are the `layer_NN` keys, or for a single-layer file the
   index from `sampler_layer` (see below for older files).
-- **Warn, don't refuse,** when `model` differs. The field is a weights path,
-  which differs between machines and between packagings of one model, and
-  comparing a finetune with its base is a supported use. This matches how
-  TokenCollider treats a universe file made under another model.
+- **Warn** when `model` differs, and load the file. The field is a weights
+  path, which changes between machines and between packagings of one model,
+  and comparing a finetune with its base is a supported use. TokenCollider
+  treats universe files made under another model the same way.
 - **Warn** when a file is too old to carry `template` or `layer`, and load it.
 
 `check_frame` in `tokencollider/conditioning.py` implements this, and
@@ -139,17 +136,16 @@ Any reader must accept what it accepts:
   layer index comes from `sampler_layer`. Older files lack it, so then from
   `layer` (the top of a band: `"18-34"` means 34; `layer` is the profile's
   charting setting, which is the sampler's layer for every built-in
-  single-layer profile), then `view_layer`, and it is `0` when none names a
-  number. For the oldest files it's a label, not geometry.
+  single-layer profile), then `view_layer`. When none names a number it's 0,
+  which for the oldest files is only a label.
 - Otherwise, every `layer_NN` key is a layer. A file with neither is not a
   conditioning.
 - Single-layer files have no `layers` field. Older files may have no metadata
   at all.
 
-The `.cond` export option writes a different thing entirely: a pickled
-ComfyUI conditioning list for one layer, with no metadata. It is not part of
-this contract. Loading a pickle runs code, so don't exchange those files
-between programs.
+The `.cond` export option writes something else: a pickled ComfyUI
+conditioning list for one layer, with no metadata. This page doesn't cover
+it. Loading a pickle runs code, so don't pass those files between programs.
 
 ## Versioning
 

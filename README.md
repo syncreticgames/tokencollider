@@ -1,68 +1,89 @@
 # TokenCollider
 
-A viewer for the embedding space of a language-model text encoder: the
-decoder-only LLM that a growing number of diffusion models read their
-conditioning from, often at several hidden layers at once. Phrases become
-**landmarks** in a 3D viewport in the browser, grouped into **universes**, and the
-encoder's layers can be scrubbed to see how meaning gets built. A point in the
-viewport can be read back as words (the nearest cached phrases) or written out
-as a conditioning tensor in the diffusion model's own frame.
+TokenCollider shows how a text encoder arranges phrases, and turns points in
+that arrangement into conditioning files for diffusion models.
 
-No model is wired into the core. A diffusion model's conventions are a
-profile, which is data: the prompt template the phrase is wrapped in, the
-hidden layers the sampler reads, and whether the sampler drops the template's
-leading tokens. What the core does assume is a kind of model:
+Some image models, such as [Krea 2](https://www.krea.ai) and
+[Z-Image](https://github.com/Tongyi-MAI/Z-Image), read their prompt through a
+language model. TokenCollider embeds phrases with that same encoder and lays
+them out in 3D. You can see which phrases sit near each other, and how that
+changes from one encoder layer to the next. Then you can pick any point and:
 
-- **A decoder-only language model** that transformers can build from the
-  checkpoint's own config (Qwen, Llama, Mistral and similar). Encoders like
-  T5 or CLIP are a different architecture and are not supported.
-- **The usual decoder layout** (`layers`, `rotary_emb`, `norm`) for exports
-  that run a blend forward through the encoder's later layers. A model laid
-  out differently still embeds and exports, and refuses only that step.
-- **Qwen-VL style image tokens** for image landmarks. Text needs none.
-- **Llama-style key names** in a single-file checkpoint, the ComfyUI layout.
-  A Hugging Face model directory loads whatever its config names.
+- read it back as the nearest phrases it knows, or
+- export it as a conditioning file, which a diffusion model samples from like
+  a prompt.
 
-The free-VRAM check is sized from the checkpoint's own weights.
+## Quick start
 
-Two profiles are built in, in `tokencollider/builtin_profiles.yaml`, and they are the
-two the tool has been run against:
+You need Python 3.13 or newer and PyTorch. On Windows, PyPI's PyTorch runs
+on the CPU only, so install the CUDA build first with the command from
+[PyTorch's install selector](https://pytorch.org/get-started/locally/). On
+Linux, the PyPI build already includes CUDA.
 
-- `zimage`: Qwen3-4B, the text encoder for [Z-Image](https://github.com/Tongyi-MAI/Z-Image). One layer.
-- `krea2`: Qwen3-VL-4B, the text encoder for [Krea 2](https://www.krea.ai). Twelve layers, and images as
-  well as text.
-
-A *universe* is a list of phrases that defines a local metric. Its embeddings
-are centered on their mean, which removes whatever all members share. The top
-principal components are the directions the universe actually varies along,
-and similarity is measured inside that subspace. So a question like "is an
-otter closer to a fox than to a heron?" has two answers:
-
-- **raw**: cosine similarity in the full embedding space.
-- **relative**: cosine similarity in the universe's own coordinates.
-
-Where the two disagree, the universe is changing the answer.
-
-## Install and run
-
-TokenCollider needs Python 3.13 or newer and PyTorch. On Linux, PyTorch from
-PyPI already includes CUDA. On Windows, PyPI's PyTorch runs on the CPU only, so
-install the CUDA build first with the command from
-[PyTorch's install selector](https://pytorch.org/get-started/locally/).
-
-From a release, install the wheel attached to it. It includes the browser
-viewport:
+Install the wheel attached to a [release](https://github.com/syncreticgames/tokencollider/releases),
+then try it with fake embeddings (no GPU, no model):
 
 ```
 pip install tokencollider-<version>-py3-none-any.whl
 tokencollider --fake
 ```
 
-`--fake` uses deterministic fake embeddings, so it runs with no GPU and no
-model. To use a real encoder, run `tokencollider profiles --init`, which
-writes an example `profiles.yaml` into TokenCollider's home (from
-[`profiles.example.yaml`](tokencollider/profiles.example.yaml)), and point it
-at your model files.
+This opens the viewport in your browser. To use a real encoder:
+
+1. Run `tokencollider profiles --init`. It writes an example `profiles.yaml`
+   into TokenCollider's home folder (see below).
+2. Set the `model:` path for the profile you want.
+3. Run `tokencollider -p krea2` (or `-p zimage`).
+
+## Using it
+
+- **Landmarks** are the phrases you add. Press Tab, type a phrase, press
+  Enter. To add an image, type `@` and the image or folder path.
+- **Universes** are lists of phrases, one per line, loaded at startup:
+  `tokencollider -p krea2 phrases.txt`. A source checkout has a few samples in
+  `universes/`. The layout is built from
+  the universe: its embeddings are centered, and the axes are the directions
+  its phrases vary along most.
+- **Layers.** The sliders at the bottom choose which encoder layer, or range
+  of layers, you're looking at.
+- **The cursor.** Press C to drop it, I to list the phrases nearest to it, and
+  X to export it. X writes a small set of files, each entering the encoder at
+  a different layer; Shift+X writes one. The viewport's key help lists every key, and M opens the
+  menu.
+
+Other commands:
+
+| Command | What it does |
+|---|---|
+| `view` | Start the server and open the viewport (the default) |
+| `serve` | Start the server alone |
+| `warm` | Embed a universe into the cache ahead of time |
+| `rank` | Rank a universe's phrases by similarity to a query |
+| `compare` | Say whether a phrase is closer to A or to B |
+| `axes` | Label a universe's axes with words from a word list |
+| `forget` | Delete phrases, or a whole model, from the cache |
+| `bridge` | Write ai-toolkit's text-embedding cache for a dataset |
+| `profiles` | List the profiles and what they resolve to |
+
+`rank` and `compare` give two answers: similarity in the encoder's full space,
+and similarity inside the universe's own axes. When they differ, the universe
+is changing the answer.
+
+## Models
+
+Two profiles are built in (`tokencollider/builtin_profiles.yaml`):
+
+- `zimage`: Qwen3-4B, Z-Image's encoder. Exports one layer.
+- `krea2`: Qwen3-VL-4B, Krea 2's encoder. Exports twelve layers, and takes
+  images as well as text.
+
+A profile describes a model as data: its prompt template and the layers its
+sampler reads. You can add your own in `profiles.yaml`. The encoder has to be
+a decoder-only language model that transformers can load, such as Qwen,
+Llama or Mistral. Image landmarks need a Qwen-VL style model. T5 and CLIP
+encoders aren't supported.
+
+## Where files go
 
 TokenCollider's home holds the embedding cache, `profiles.yaml`, exports and
 saved universes. The cache and exports contain every phrase you embed, in
@@ -71,85 +92,55 @@ plain text.
 - Installed: `~/.local/share/tokencollider` on Linux,
   `%LOCALAPPDATA%\TokenCollider` on Windows, and
   `~/Library/Application Support/TokenCollider` on macOS.
-- Source checkout: the repo itself. The cache, `profiles.yaml` and exports
-  are gitignored, and saved universes go to `universes/saved/`, also
-  gitignored, apart from the sample lists.
-- `TOKENCOLLIDER_HOME` overrides both. `TOKENCOLLIDER_PROFILES` points at a
-  `profiles.yaml` somewhere else.
+- Source checkout: the repo itself. These files are gitignored, and saved
+  universes go to `universes/saved/`.
+- `TOKENCOLLIDER_HOME` sets another folder. `TOKENCOLLIDER_PROFILES` points at
+  a `profiles.yaml` elsewhere.
 
-`tokencollider view` (the default command) starts the sidecar and opens the
-viewport in your browser. To add an image as a landmark, press Tab and type
-`@` and the image or folder path, then Enter. Dropping files on the window
-works only in the desktop viewport. `tokencollider view --desktop` opens the desktop
-Godot viewport instead; it needs a source checkout and
-[Godot 4](https://godotengine.org/download) on your PATH.
+## Working from source
 
-From a source checkout, `uv sync` installs the dependencies, and
-`tools/export_web.sh` builds the browser viewport. That needs Godot 4.7 and its
-web export templates. Without it, `view` falls back to desktop Godot.
+`uv sync` installs the dependencies. `tools/export_web.sh` builds the browser
+viewport, which needs Godot 4.7 and its web export templates. Without that
+build, `tokencollider view` opens the desktop viewport instead, which needs
+[Godot 4](https://godotengine.org/download) on your PATH. `view --desktop`
+always does.
 
-## Layout
+Run the tests with `uv run python tests/run.py`.
 
-The core. Its code names no model; what it knows about one comes from a
-profile:
+## Integrations
 
-- `tokencollider/`: the Python side. It owns the encoder, the SQLite embedding cache and a
-  loopback-only HTTP sidecar, and provides the `tokencollider` command.
-- `frontend/`: the Godot 4 viewport. It runs on the desktop, or in the
-  browser as a web export the sidecar serves. Its structure is in
-  [frontend/ARCHITECTURE.md](frontend/ARCHITECTURE.md).
-- `tools/export_web.sh`: builds the web export. When a GitHub release is
-  published, `.github/workflows/release.yml` runs it, builds the wheel with it
-  inside, and attaches the wheel to the release.
-- `universes/`: sample phrase lists.
-- `tests/`: model-free test suites and a metric baseline, plus
-  `tests/real_model.py`, which runs the two built-in profiles on real weights.
-
-Integrations, each written for particular models or tools:
-
-- `comfyui_node/`: [ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes
-  that load exported conditionings. Install steps are in its
-  [README](comfyui_node/README.md). A single-layer export loads as is. A
-  multi-layer stack is fused the way ComfyUI's Krea 2 encoder fuses it, the
-  only multi-layer layout the node knows.
-- `tokencollider bridge` (`tokencollider/bridge.py`) and `trainers/`: pre-write
-  [ai-toolkit](https://github.com/ostris/ai-toolkit)'s text-embedding cache
-  and distil an export into a LoRA. They write ai-toolkit's `zimage` and
-  `krea2` cache formats, so they work for profiles that declare one of those
-  as their `trainer_arch`. To install the trainer, copy or symlink
-  `trainers/tokencollider_jumpstart` into ai-toolkit's `extensions/` folder,
-  which ai-toolkit scans for extensions at startup, then start from
+- **[ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes**
+  (`comfyui_node/`) load exports as conditioning. Install steps are in
+  [its README](comfyui_node/README.md).
+- **[ai-toolkit](https://github.com/ostris/ai-toolkit) training.**
+  `tokencollider bridge` writes ai-toolkit's text-embedding cache, and the
+  trainer in `trainers/tokencollider_jumpstart` trains a LoRA towards an
+  export. To install the trainer, copy or symlink that folder into
+  ai-toolkit's `extensions/` folder, then start from
   `trainers/jumpstart.example.yaml`.
-- `tools/pack_encoder.py`: packs a sharded Qwen3-VL-4B into the single-file
-  layout ComfyUI's Krea 2 loader reads.
+- `tools/pack_encoder.py` packs a sharded Qwen3-VL-4B into the single file
+  ComfyUI's Krea 2 loader reads.
 
-Further reading:
+## Docs
 
-- [docs/design.md](docs/design.md): design notes and how the two halves fit.
-- [docs/vocabulary.md](docs/vocabulary.md): the project's terms.
-- [docs/security.md](docs/security.md): what the sidecar exposes and refuses.
-- [docs/export-format.md](docs/export-format.md): the export file format, for
-  programs that read or write it.
-- [docs/credits.md](docs/credits.md): licenses and what each dependency asks.
+- [docs/design.md](docs/design.md): how it's put together, and what's planned.
+- [docs/vocabulary.md](docs/vocabulary.md): the terms the code and UI use.
+- [docs/export-format.md](docs/export-format.md): the export file format.
+- [docs/security.md](docs/security.md): what the local server accepts.
+- [docs/credits.md](docs/credits.md): licenses and credits.
+- [frontend/ARCHITECTURE.md](frontend/ARCHITECTURE.md): the viewport's code.
 
-## Built on
+## Credits
 
-- **[Godot Engine](https://godotengine.org)** (MIT) is the viewport.
-- **[ComfyUI](https://github.com/comfyanonymous/ComfyUI)** by comfyanonymous
-  (GPL-3.0) is the renderer the exports are built for.
-- **[ai-toolkit](https://github.com/ostris/ai-toolkit)** by
-  [Ostris](https://github.com/ostris) (MIT). The trainer extension is built on
-  its caching and its `SDTrainer`.
-- **[Qwen3-VL-4B](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct)** and
-  **[Qwen3-4B](https://huggingface.co/Qwen/Qwen3-4B)** by Alibaba's Qwen team
-  are the encoders the built-in profiles load.
-- **Krea 2** by Krea and **Z-Image** by Tongyi MAI are the diffusion models the
-  built-in profiles target.
-- **[PyTorch](https://pytorch.org)**,
-  **[transformers](https://github.com/huggingface/transformers)**,
-  **[safetensors](https://github.com/huggingface/safetensors)**,
-  **[numpy](https://numpy.org)**, **[Pillow](https://python-pillow.org)** and
-  **[PyYAML](https://pyyaml.org)**.
+Built on [Godot](https://godotengine.org), [PyTorch](https://pytorch.org),
+[transformers](https://github.com/huggingface/transformers),
+[safetensors](https://github.com/huggingface/safetensors),
+[numpy](https://numpy.org), [Pillow](https://python-pillow.org) and
+[PyYAML](https://pyyaml.org). The built-in profiles load Alibaba's
+[Qwen3-VL-4B](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct) and
+[Qwen3-4B](https://huggingface.co/Qwen/Qwen3-4B), the encoders for Krea 2
+(by Krea) and Z-Image (by Tongyi MAI). More in
+[docs/credits.md](docs/credits.md).
 
 ## License
 

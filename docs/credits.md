@@ -1,43 +1,34 @@
-# License and credits
+# Licenses and credits
 
-TokenCollider is MIT licensed (see `LICENSE`). What follows is what the
-project depends on and what each dependency asks of you. It is a practical
+TokenCollider is MIT licensed (see [LICENSE](../LICENSE)). This page covers
+what its dependencies ask of anyone who redistributes it. It's a practical
 summary, not legal advice.
 
-[← TokenCollider README](../README.md)
+[← README](../README.md)
 
-## The rule that decides everything
+## The source repository
 
-**Almost every obligation triggers on DISTRIBUTION, not on use.** Nothing is
-vendored into this repository: the engine, the Python packages, the model
-weights, and ComfyUI are all things a user installs themselves. So the
-source repository carries no obligation beyond its own MIT notice.
+The repository includes none of its dependencies' code: Godot, the Python
+packages, the model weights and ComfyUI are all installed separately. So the
+source carries only its own MIT notice.
 
-The release wheel is different. It bundles the browser viewport, a Godot web
-export, and that export **is** a compiled copy of the engine. So every release
-ships Godot, and the next section applies to every release.
+## The release wheel and Godot
 
-## The Godot engine in the browser viewport
+The release wheel includes the browser viewport, which is a Godot web export,
+so every release ships a compiled copy of Godot. Godot is MIT licensed, and
+its notice has to go with it, along with the notices of the libraries it
+bundles (FreeType, zlib and others).
 
-Godot is MIT licensed, and an export embeds the engine, so the engine's
-copyright notice must travel with it. Godot makes this easy: it exposes the
-full text at runtime through `Engine.get_license_text()` and
-`Engine.get_copyright_info()`, and the recommended pattern is an in-app
-credits screen that prints them. See Godot's own
-[Complying with licenses](https://docs.godotengine.org/en/stable/tutorials/legal/complying_with_licenses.html).
+The viewport's Credits screen (press M, then Credits) prints both, using
+`Engine.get_license_text()` and `Engine.get_copyright_info()`. That's how
+Godot's guide to
+[complying with licenses](https://docs.godotengine.org/en/stable/tutorials/legal/complying_with_licenses.html)
+recommends doing it. The Credits screen has to stay reachable for that reason.
 
-The engine also bundles third-party components (FreeType, zlib and others)
-with their own notices, which is exactly what `get_copyright_info()` returns.
-Printing it wholesale is both the easiest and the most correct option.
+## Bundling Python
 
-TokenCollider does exactly that: the Credits screen (press **M** in the
-viewport, then Credits) prints both. The release wheel relies on that screen
-to carry Godot's notice, so it must stay reachable in every build.
-
-## If you ship a bundled Python runtime
-
-Freezing the sidecar (PyInstaller, Nuitka, or similar) redistributes every
-dependency, and each one's notice then has to be included:
+A build that bundles the Python side (with PyInstaller, Nuitka or similar)
+redistributes every package, and each one's notice has to be included:
 
 | Package | License |
 |---|---|
@@ -48,61 +39,40 @@ dependency, and each one's notice then has to be included:
 | Pillow | MIT-CMU |
 | PyYAML | MIT |
 
-Apache 2.0 additionally wants any `NOTICE` file carried along. `pip-licenses`
-or `uv pip licenses` can generate the bundle for you; do not hand-maintain
-this table for a shipped build, because it will drift.
+Apache 2.0 also asks for any `NOTICE` file to be included. Generate the
+bundle with a tool such as `pip-licenses`, since this table will drift.
 
-## Model weights: not yours to ship, and you do not need to
+## Model weights
 
-TokenCollider reads whichever encoder a profile points at from local disk
-(for the built-in profiles, Qwen3-VL-4B for Krea 2 or Qwen3-4B for Z-Image). It never copies or redistributes them, so their terms do not attach to
-this project. Users obtain the weights themselves under whatever license the
-publisher offers.
+TokenCollider reads model weights from your disk. It never downloads or
+redistributes them, so their licenses don't apply to the project. You get
+the weights yourself, under their publishers' terms.
 
-If you ever ship a build that downloads weights automatically, that is
-distribution and the model license applies. Right now nothing is downloaded:
-the loader is offline by construction.
+## ComfyUI
 
-Credit them anyway, in the README, because it is accurate and courteous:
-the encoders are Alibaba's Qwen models, and Krea 2 and Z-Image are their
-respective authors' work.
+ComfyUI is GPL-3.0. The ComfyUI nodes (`comfyui_node/nodes.py`) import only
+the Python standard library, `safetensors` (Apache 2.0) and `torch`
+(BSD 3-Clause). They import, subclass and copy nothing from ComfyUI. ComfyUI
+loads and calls them like any plugin, so they remain MIT. A node that
+imported from ComfyUI would change that.
 
-## ComfyUI is GPL-3.0, and this project stays clear of it
+## ai-toolkit
 
-Worth stating precisely, because it is the one license here that could reach
-into your code.
-
-`comfyui_node/nodes.py` imports only the Python standard library,
-`safetensors` (Apache 2.0) and `torch` (BSD 3-Clause), which ComfyUI itself
-provides. It touches no ComfyUI module, subclasses no ComfyUI class, and
-copies no ComfyUI code. ComfyUI loads it and calls it, which is ordinary
-plugin use, and the node is independently useful as a safetensors reader. On
-that basis it is not a derivative work of ComfyUI and stays MIT.
-
-If a future node imports from `comfy.*` or `nodes.py`, that reasoning no
-longer holds and the question becomes genuinely contested. Keep the boundary
-where it is.
-
-## ai-toolkit is MIT
-
-`trainers/tokencollider_jumpstart/` subclasses `SDTrainer` and imports from
-`toolkit.*`, so it is plainly built on ai-toolkit. ai-toolkit is MIT
-(Copyright (c) 2024 Ostris, LLC), which permits that and asks only that the
-notice travel with any substantial portion. We ship none of their code, only
-an extension that imports it, so there is nothing to carry; the credit below
-is courtesy.
+The trainer in `trainers/tokencollider_jumpstart/` subclasses ai-toolkit's
+`SDTrainer`. ai-toolkit is MIT (Copyright (c) 2024 Ostris, LLC). The project
+includes none of its code, only an extension that imports it.
 
 ## Credits
 
-- **[Godot Engine](https://godotengine.org)** (MIT). The viewport.
-- **[ComfyUI](https://github.com/comfyanonymous/ComfyUI)** (GPL-3.0). The
-  renderer the exports are built for.
-- **[ai-toolkit](https://github.com/ostris/ai-toolkit)** by Ostris (MIT). The
-  LoRA trainer the bridge and jumpstart target.
-- **Qwen3-VL-4B / Qwen3-4B** by Alibaba. The text encoders whose
-  hidden states this tool explores.
-- **Krea 2** and **Z-Image**. The diffusion models the exports condition.
-- **[Oklab](https://bottosson.github.io/posts/oklab/)** by Björn Ottosson. The
-  perceptual color space the viewport colors points in; its matrices are in
-  `tokencollider/oklab.py` and `frontend/lib/Oklab.gd`.
-- PyTorch, transformers, safetensors, numpy, Pillow, PyYAML.
+- **[Godot Engine](https://godotengine.org)** (MIT): the viewport.
+- **[ComfyUI](https://github.com/comfyanonymous/ComfyUI)** (GPL-3.0): what
+  the exports are made for.
+- **[ai-toolkit](https://github.com/ostris/ai-toolkit)** by Ostris (MIT): the
+  LoRA trainer the bridge and jumpstart trainer target.
+- **Qwen3-VL-4B** and **Qwen3-4B** by Alibaba: the encoders the built-in
+  profiles load.
+- **Krea 2** and **Z-Image**: the diffusion models the exports are for.
+- **[Oklab](https://bottosson.github.io/posts/oklab/)** by Björn Ottosson: the
+  color space the viewport colors points in (`tokencollider/oklab.py`,
+  `frontend/lib/Oklab.gd`).
+- PyTorch, transformers, safetensors, numpy, Pillow and PyYAML.

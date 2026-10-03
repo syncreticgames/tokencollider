@@ -1,42 +1,38 @@
 # ComfyUI-TokenCollider
 
-Three [ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes for TokenCollider conditioning exports.
+[ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes that load
+TokenCollider exports.
 
-- **Load Conditioning (safetensors)**: an export's path in, a standard
-  `CONDITIONING` out, plus its metadata as a string. Re-runs when the file's
-  content changes, so a re-export to a fixed path retriggers downstream.
-- **Load Conditioning Stack (inserters)**: one stack export (one cursor at
-  several inserters), loaded as one conditioning. Give a glob such as
-  `exports/<name>_cook*`, or a directory holding only that stack; a directory
-  holding several stacks is refused with their names listed. Each
-  entry carries its own start and end percent, so each is active over its own
-  slice of the denoising schedule.
-- **Conditioning Info**: pass-through inspector. Reports token count,
-  effective (non-zero) tokens, and dim.
+- **Load Conditioning (safetensors)** loads one export as `CONDITIONING`, and
+  outputs its metadata as text. It re-runs when the file changes.
+- **Load Conditioning Stack (inserters)** loads a set of exports made from one
+  point at different inserter layers, as one conditioning. Each file is
+  active for its own share of the denoising steps. Give it a glob such as
+  `exports/<name>_cook*`, or a folder holding only that set. A folder with
+  more than one set is refused, and the error lists them.
+- **Conditioning Info** passes a conditioning through and reports its token
+  count, non-zero tokens and width.
 
-An export is per-token hidden states saved as safetensors, one tensor per
-layer the diffusion model reads. A single-layer export loads as is. A
-multi-layer stack is fused layer-major into the feature axis, `(1, seq,
-n*dim)`, which is how ComfyUI's own Krea 2 encoder hands its twelve layers to
-the diffusion model. That is the only multi-layer layout these nodes know; a
-model that combines layers differently needs its own fusion.
+A single-layer export loads as it is. A multi-layer export, such as Krea 2's
+twelve layers, is joined into one tensor the way ComfyUI's own Krea 2 encoder
+does it. That's the only multi-layer arrangement these nodes support. The file
+format is described in TokenCollider's
+[docs/export-format.md](../docs/export-format.md).
 
-Beyond the standard library it needs `safetensors` and `torch`, both of which
-ComfyUI already provides.
+The nodes need `safetensors` and `torch`, which ComfyUI already has.
 
 ## Install
 
-The nodes live in a folder of the TokenCollider repo, which ComfyUI-Manager
-can't install from, so install them by hand, the way ComfyUI's guide to
-[installing a custom node manually](https://docs.comfy.org/installation/install_custom_node)
-describes:
+ComfyUI-Manager can't install from a folder inside another repo, so install
+them by hand, as in ComfyUI's guide to
+[installing a custom node manually](https://docs.comfy.org/installation/install_custom_node):
 
 1. Copy or symlink this `comfyui_node` folder into `ComfyUI/custom_nodes/`,
    for example as `ComfyUI/custom_nodes/comfyui-tokencollider`. A symlink
-   keeps it up to date with the repo.
-2. Restart ComfyUI. The nodes appear under the `tokencollider` category.
+   stays up to date with the repo.
+2. Restart ComfyUI. The nodes are in the `tokencollider` category.
 
 ## License
 
-MIT, Copyright (c) 2026 Syncretic Games LLC. This package imports no ComfyUI
-code, so it is not a derivative work of ComfyUI (GPL-3.0).
+MIT, Copyright (c) 2026 Syncretic Games LLC. The nodes import no ComfyUI code
+(see TokenCollider's [docs/credits.md](../docs/credits.md)).

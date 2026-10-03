@@ -1,106 +1,57 @@
 # Vocabulary
 
-One word per thing, and the two axes everything else hangs off.
+The terms the code, the viewport and the file names use.
 
-[← TokenCollider README](../README.md)
+[← README](../README.md)
 
-The rule throughout: technical terms name things, musical terms explain them. The metaphor never
-becomes the label.
-
-## The two axes
-
-Almost every confusion in this project came from one word covering both of
-these. They are independent, and they are set by different knobs.
-
-- **Layer.** Where in the encoder's sequential passes something happens (36
-  in both built-in encoders). The inserter lives here. Nothing on this axis
-  is about time.
-- **Window.** When, across a generation's denoising steps, a conditioning is
-  active. The Load Conditioning Stack node's start and end percent live here.
-
-An export is *placed* on the layer axis and *scheduled* on the window axis.
-Never describe a layer with a time word.
-
-## Names
-
-These are the terms. They appear in code, filenames, and node widgets.
-
-| Term | What it is |
+| Term | Meaning |
 |---|---|
-| **layer** | one of the encoder's sequential passes, numbered from 0 |
-| **universe** | the landmark set a chart is built from |
-| **chart** | the local coordinate system the cursor moves in, built by pooling the universe over a layer band |
-| **atlas** | the parent chart a neighborhood was carved from and aligns its axes to |
-| **lift** | mapping a cursor's coordinates out of the chart and back into full embedding space |
-| **blend** | the signed weights over universe members that a lifted point solves to |
-| **inserter** | the layer the blend is placed at (`hi`, the band's high edge) |
-| **export** | the file: every layer the sampler reads, written as one safetensors |
-| **window** | the sigma range an export is active over, widened by **overlap** |
-| **volume** | how hard an export pulls on the image (`repeat` on a model that normalizes its context, such as Z-Image) |
-| **CFG** | how far past the charted reading the sampler pushes |
-| **concat** | caption tokens and export tokens in one sequence, each keeping its own positions |
-| **image embeddings** / **text embeddings** | the two kinds of landmark a blend mixes within but never across |
+| **layer** | One of the encoder's passes, numbered from 0. Both built-in encoders have 36. |
+| **landmark** | A phrase or image placed in the viewport. |
+| **universe** | A set of landmarks. The layout is built from it. |
+| **chart** | The universe's own coordinates, built from its embeddings at one layer or an averaged range of layers. |
+| **atlas** | The parent chart a smaller neighborhood was cut from. Its axes are kept aligned to the parent's. |
+| **blend** | The weights over landmarks that a point in the chart works out to. |
+| **inserter** | The layer an export's blend enters the encoder at (see below). |
+| **export** | The file a point is saved as: every layer the model's sampler reads. See [export-format.md](export-format.md). |
+| **window** | The part of the denoising schedule an export is active for, widened by **overlap**. |
+| **concat** | A caption and an export joined into one sequence of tokens. |
 
-Coordinates on the layer axis stay numbers. Layer 20, inserter at 8, taps at
-2 through 35. No word replaces the number.
+Two settings are easy to mix up:
 
-## Explanations, using Krea 2
+- **Layer** is about the encoder: which of its passes.
+- **Window** is about generation: which denoising steps.
 
-The explanations below use Krea 2's numbers as the worked example: 36 passes,
-of which its diffusion model reads twelve. Another model reads a different
-set; the profile says which.
+They're independent. An export is placed at a layer and scheduled over a
+window.
 
-These build intuition. They are never used as labels.
+## The inserter
 
-- **Rehearsal.** The encoder runs once, before anything renders. Thirty-six
-  passes, each reworking what the last one produced.
-- **Takes.** Krea 2's diffusion model (a DiT, diffusion transformer) does not
-  read the final pass. It reads twelve of them, at layers 2, 5, 8 and on up
-  to 35, and uses all twelve at once. One export is twelve takes of one
-  passage. Z-Image reads a single take, which is where "one layer per file"
-  came from.
-- **Score.** What an export is to the sampler: written instructions, fixed
-  before the performance starts.
-- **Voice.** Each part in a concat. The caption and the export sit in one
-  sequence and the DiT attends over both, but the caption was encoded without
-  ever seeing the export. Two voices on the stand, neither having rehearsed
-  with the other. Averaging them gives you neither, which is why
-  `ConditioningAverage` produces grids.
-- **The performance.** One generation, from cacophony toward coherence, one
-  step per moment.
+Krea 2's encoder has 36 layers, and its diffusion model reads twelve of them:
+layers 2, 5, 8 and so on up to 35. An export holds all twelve.
 
-The inserter in these terms: it decides which rehearsal you walk into and hand
-the players your part. Everything after it is rehearsed normally, so those
-takes come out sounding like the encoder made them. Takes recorded *before*
-the inserter cannot contain your part, so those are filled by hand from the
-raw blend. Inserter at 8 leaves nine takes rehearsed and three filled by hand.
-Inserter at 26 reverses that. Same blend, same twelve tensors, different file.
+The inserter is the layer where the blend goes in. The encoder then runs the
+remaining layers on it, so every layer after the inserter looks like the
+encoder made it. Layers at or before the inserter come straight from the
+blend.
 
-On CFG: the sampler computes what it would produce with the prompt and what
-it would produce with no prompt at all, then pushes past the first in the
-direction away from the second. CFG 1.0 plays the score as written. Above 1.0
-overplays it, leaning into whatever makes this score different from the
-model's default, which is why high CFG blows out contrast and goes rigid.
+So an inserter at 8 gives nine layers the encoder ran and three taken from the
+blend. An inserter at 26 gives the reverse. Same blend, different file. An
+earlier inserter (a lower layer number) leaves the encoder more of its own
+passes to reinterpret the blend.
 
-## Retired
+## Concat and CFG
 
-Old words, and what they became.
+In a concat, the caption and the export sit in one sequence, and the
+diffusion model attends to both. They were encoded separately, though.
+Averaging the two instead gives neither, and tends to produce grids.
 
-| Retired | Now |
-|---|---|
-| cooking (as a verb), patch-and-cook | placing the blend at the inserter |
-| injection depth, cook depth, band top | inserter |
-| tap, depth (as a synonym for layer) | layer |
-| takes (as a verdict: "the depth that takes") | the inserter that renders best |
-| geometry (when it meant the chart), map, view layer, mode, palette | chart |
-| attend, plumb, ingest | read |
-| library | universe |
-| sections | image embeddings, text embeddings |
+CFG (classifier-free guidance) is how far past the prompt the sampler pushes,
+away from what it would make with no prompt. At 1.0 it follows the
+conditioning as given. Higher values exaggerate whatever sets it apart from
+the model's default, which is why high CFG gives harsh contrast.
 
-`cookNN` and `mapLO_HI` stay in export filenames, and `blend`, `export`, and
-`chart` stay as identifiers and endpoints. Renaming files or code was never
-the point.
+## In file names
 
-"Geometry" survives where it means the actual shape of a point cloud, as in a
-universe's geometry or the vision tower's patch geometry. It is retired only
-where it stood in for the chart.
+Export files use older short forms: `cookNN` is the inserter layer, and
+`mapLO_HI` is the chart's layer range.
