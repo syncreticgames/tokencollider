@@ -50,3 +50,11 @@ func test_settings_receives_the_config_object() -> void:
 	harness.ok(o._screen.settings != null, "settings screen got the config")
 	harness.ok(o._screen.has_signal("closed"), "and can navigate back")
 	o.free()
+
+func test_key_help_lists_the_menu() -> void:
+	## The menu is the only way to Credits, which carries Godot's licence
+	## notice for the shipped web build, so the help must say how to open it.
+	## The help panel clips past its fixed height: hold the line count.
+	var help: String = preload("res://Main.gd").KEY_HELP
+	harness.ok(help.contains("M: menu"), "key help names the menu key")
+	harness.eq(help.count("\n"), 17, "key help keeps its line count")

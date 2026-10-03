@@ -1,4 +1,5 @@
 extends Node3D
+
 ## MVP frontend for the tokencollider sidecar. Type a word and press Enter to add a
 ## landmark. Fly with WASD + right-mouse look. C drops the cursor ahead of the
 ## camera, I interrogates it, X exports the conditioning tensor at it, R
@@ -9,6 +10,11 @@ extends Node3D
 ## The cursor's color dims come from the color picker: pick a color, and the
 ## inverse of the sidecar's Oklab mapping turns it into z-scores on axes 4-6 —
 ## matching a landmark's ball color steers toward it in those dimensions.
+
+## The on-screen key help. The panel is a fixed height and clips silently, so
+## the line count matters: see where it is applied in _ready. M must stay
+## listed, since the menu is the only way to Credits and Godot's licence notice.
+const KEY_HELP := "[b]TokenCollider[/b]\nTab: word box, Enter: back to flight\nF: search + fly to a landmark\nWASD + right-mouse: fly (Q/E, Shift)\nmousewheel: fly speed\nleft/right: step one layer\nbottom sliders: layer range\nC: drop cursor    I: interrogate\nShift+I: realize ghosts as landmarks\nG: colonize   L: world/local axes\nO: centre cursor   @path / drop: images\nX: export stack   Shift+X: single\nCtrl+X: full sweep\nleft-drag: box select   Del: delete\nT: trails  N: norm/abs  R: refresh\nU: snapshot   V: release GPU\ncolor swatch: cursor dims 4-6\nEsc: clear  M: menu  Ctrl+Q: quit"
 
 const Matcher := preload("res://lib/Matcher.gd")
 const Oklab := preload("res://lib/Oklab.gd")
@@ -137,7 +143,7 @@ func _ready() -> void:
 	# small enough that this fits with room to spare.
 	info.add_theme_font_size_override("normal_font_size", 13)
 	info.add_theme_font_size_override("bold_font_size", 13)
-	info.text = "[b]TokenCollider[/b]\nTab: word box, Enter: back to flight\nF: search + fly to a landmark\nWASD + right-mouse: fly (Q/E, Shift)\nmousewheel: fly speed\nleft/right: step one layer\nbottom sliders: layer range\nC: drop cursor    I: interrogate\nShift+I: realize ghosts as landmarks\nG: colonize   L: world/local axes\nO: centre cursor   @path / drop: images\nX: export stack   Shift+X: single\nCtrl+X: full sweep\nleft-drag: box select   Del: delete\nT: trails  N: norm/abs  R: refresh\nU: snapshot   V: release GPU\ncolor swatch: cursor dims 4-6\nEsc: clear   Ctrl+Q: quit"
+	info.text = KEY_HELP
 	_refresh()
 
 # --- sidecar API ---------------------------------------------------------

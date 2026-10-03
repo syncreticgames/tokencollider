@@ -8,14 +8,16 @@ summary, not legal advice.
 
 ## The rule that decides everything
 
-**Almost every obligation triggers on DISTRIBUTION, not on use.** Nothing here
-is vendored into this repository: the engine, the Python packages, the model
+**Almost every obligation triggers on DISTRIBUTION, not on use.** Nothing is
+vendored into this repository: the engine, the Python packages, the model
 weights, and ComfyUI are all things a user installs themselves. So the
-source-only repository carries no obligation beyond its own MIT notice.
+source repository carries no obligation beyond its own MIT notice.
 
-That changes the moment you ship a **binary**.
+The release wheel is different. It bundles the browser viewport, a Godot web
+export, and that export **is** a compiled copy of the engine. So every release
+ships Godot, and the next section applies to every release.
 
-## If you ship an exported Godot binary
+## The Godot engine in the browser viewport
 
 Godot is MIT licensed, and an export embeds the engine, so the engine's
 copyright notice must travel with it. Godot makes this easy: it exposes the
@@ -27,6 +29,10 @@ credits screen that prints them. See Godot's own
 The engine also bundles third-party components (FreeType, zlib and others)
 with their own notices, which is exactly what `get_copyright_info()` returns.
 Printing it wholesale is both the easiest and the most correct option.
+
+TokenCollider does exactly that: the Credits screen (press **M** in the
+viewport, then Credits) prints both. The release wheel relies on that screen
+to carry Godot's notice, so it must stay reachable in every build.
 
 ## If you ship a bundled Python runtime
 
