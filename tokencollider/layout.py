@@ -431,10 +431,13 @@ class LayoutSession:
         out = {}
         for l in depths:
             parts = []
-            if prefix and len(groups) == 1:
-                parts.append(blend_tokens([states[p][l][:prefix]
-                                           for p in self.phrases], weights))
-            elif prefix:
+            if prefix:
+                # The prefix rows are the same for every landmark: attention
+                # is causal and the template before the slot is shared, so
+                # nothing the phrase says can reach them. Copy one landmark's.
+                # Blending them would scale them by the weights' sum, which
+                # is 1 only for a plain local solve, and the scaled rows
+                # (attention sink included) would steer the cook.
                 parts.append(states[self.phrases[0]][l][:prefix])
             for kind in ("image", "phrase"):
                 members = groups.get(kind, [])

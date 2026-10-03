@@ -748,6 +748,34 @@ def test_layer_count_comes_from_config():
     print("ok: layer count from the checkpoint config, not a light cache")
 
 
+def test_prefix_rows_copied_not_scaled():
+    """The template prefix is identical for every landmark (causal attention,
+    shared scaffold), so a blend whose weights do not sum to 1 (strict, pole
+    and world-axes solves) must copy it, not scale it."""
+    from tokencollider.embedder import FakeEmbedder
+    from tokencollider.layout import LayerStack
+
+    class Prefixed(FakeEmbedder):
+        def template_prefix_tokens(self):
+            return 2
+
+        def conditioning_layers(self, text, layers):
+            out = super().conditioning_layers(text, layers)
+            for t in out.values():
+                t[:2] = 7.0  # what causal attention guarantees: shared rows
+            return out
+
+    stack = LayerStack(Prefixed(dim=16))
+    for w in ("red", "blue", "green"):
+        stack.add_landmark(w)
+    session = stack.session(None)
+    layer = stack.embedder.n_layers - 1
+    for weights in ([0.5, 0.4, 0.0], [0.6, 0.6, -0.1], [1.0, 0.0, 0.0]):
+        out = session._blend_at([layer], weights)[layer]
+        assert np.allclose(out[:2], 7.0), (weights, out[:2, :3])
+    print("ok: blend copies the shared prefix rows instead of scaling them")
+
+
 if __name__ == "__main__":
     test_value_type()
     test_file_format()
@@ -764,5 +792,6 @@ if __name__ == "__main__":
     test_profiles_yaml()
     test_light_warm_stays_light()
     test_layer_count_comes_from_config()
+    test_prefix_rows_copied_not_scaled()
     test_cook_capture_range()
     print("all conditioning tests passed")
