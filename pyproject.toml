@@ -1,10 +1,23 @@
 [project]
 name = "tokencollider"
 version = "0.1.0"
-description = "Explore a text encoder's embedding space by landmarks and universes, with layer scrubbing and a Godot viewport"
+description = "Explore a text encoder's embedding space by landmarks and universes, with layer scrubbing, conditioning exports for diffusion models, and a browser viewport"
+readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
+authors = [{ name = "Syncretic Games LLC" }]
 requires-python = ">=3.13"
+keywords = ["embeddings", "text encoder", "diffusion", "conditioning", "interpretability", "qwen", "visualization"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: GPU :: NVIDIA CUDA",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
 dependencies = [
     "numpy",
     "torch",
@@ -13,6 +26,11 @@ dependencies = [
     "pyyaml",
     "pillow>=12.3.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/syncreticgames/tokencollider"
+Issues = "https://github.com/syncreticgames/tokencollider/issues"
+Documentation = "https://github.com/syncreticgames/tokencollider#readme"
 
 [project.scripts]
 tokencollider = "tokencollider.cli:main"
