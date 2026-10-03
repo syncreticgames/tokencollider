@@ -725,6 +725,29 @@ def test_comfy_stack_skips_mirrors():
     print("ok: comfy stack loader refuses a folder of several stacks")
 
 
+def test_layer_count_comes_from_config():
+    """A light warm caches only the charting layer, so the highest cached
+    layer says nothing about the top of the model. The count comes from the
+    checkpoint's config (blocks + 1); the cache is only a last resort."""
+    from transformers import Qwen3Config
+    from tokencollider.embedder import Embedder
+    from tokencollider.store import EmbeddingStore
+
+    with tempfile.TemporaryDirectory() as d:
+        cfg = Path(d) / "cfg"
+        Qwen3Config(num_hidden_layers=6, hidden_size=32, intermediate_size=64,
+                    num_attention_heads=4, num_key_value_heads=2,
+                    vocab_size=128).save_pretrained(cfg)
+        store = EmbeddingStore(Path(d) / "c.db")
+        store.layers_cached = lambda _model: ["2"]  # a light warm at layer 2
+        emb = Embedder(store, model_name="unused", config_dir=str(cfg), layer="2")
+        assert emb.layer_count() == 7, emb.layer_count()
+        # No config anywhere: fall back to the cache's lower bound.
+        bare = Embedder(store, model_name=str(Path(d) / "missing"), layer="2")
+        assert bare.layer_count() == 3, bare.layer_count()
+    print("ok: layer count from the checkpoint config, not a light cache")
+
+
 if __name__ == "__main__":
     test_value_type()
     test_file_format()
@@ -740,5 +763,6 @@ if __name__ == "__main__":
     test_profiles()
     test_profiles_yaml()
     test_light_warm_stays_light()
+    test_layer_count_comes_from_config()
     test_cook_capture_range()
     print("all conditioning tests passed")

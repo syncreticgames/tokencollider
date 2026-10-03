@@ -865,8 +865,14 @@ class Embedder:
         return None if idx is None else (idx,)
 
     def layer_count(self) -> int | None:
-        """Hidden-state layer, from the model if loaded, else the cache."""
+        """Hidden-state entries: from the model if it has run, else the
+        checkpoint's config, else (no config to be found) the cache."""
         if self.n_layers is None:
+            self.n_layers = self._config_layer_count()
+        if self.n_layers is None:
+            # Last resort, and only a lower bound: a light warm stores the
+            # charting layer alone, so the highest cached layer can sit far
+            # below the top of the model.
             numeric = [
                 int(l) for l in self.store.layers_cached(self.model_name)
                 if l.isdigit()
@@ -874,6 +880,20 @@ class Embedder:
             if numeric:
                 self.n_layers = max(numeric) + 1
         return self.n_layers
+
+    def _config_layer_count(self) -> int | None:
+        """Decoder blocks + 1 (index 0 is the embedding-table output), read
+        from the config the tokenizer already needs, so no forward pass. A
+        vision-language checkpoint counts its text tower's blocks."""
+        from transformers import AutoConfig
+
+        try:
+            config = self._from_pretrained(AutoConfig)
+            _cls, build, _skip = self._text_tower(config)
+        except SystemExit:
+            return None
+        n = getattr(build, "num_hidden_layers", None)
+        return None if n is None else int(n) + 1
 
     def _forward_missing(self, texts: list[str], store_fn, verbose: bool = False,
                          label: str = "embedding") -> None:
