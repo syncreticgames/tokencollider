@@ -48,6 +48,22 @@ func test_menu_has_no_quit_in_a_browser() -> void:
 	harness.ok(preload("res://Main.gd").KEY_HELP.contains("  Ctrl+Q: quit"),
 		"the help's quit hint is the exact text the browser build removes")
 
+func test_port_setting_says_what_it_does() -> void:
+	## `tokencollider view` sets the port in both launch modes, so the saved
+	## one only reaches a hand-started Godot. In a browser it can't apply.
+	var desktop = load("res://ui/SettingsPanel.tscn").instantiate()
+	desktop.show_port = true
+	desktop._ready()
+	harness.ok(desktop.get_node("Margin/Rows/Port").visible, "desktop shows the port")
+	harness.ok(desktop.PORT_NOTE.contains("by hand"), "the note says when it applies")
+	harness.ok(not desktop.PORT_NOTE.contains("next launch"), "no claim it applies on next launch")
+	desktop.free()
+	var web = load("res://ui/SettingsPanel.tscn").instantiate()
+	web.show_port = false
+	web._ready()
+	harness.ok(not web.get_node("Margin/Rows/Port").visible, "browser hides the port")
+	web.free()
+
 func test_credits_include_the_engine_notice() -> void:
 	## Godot is MIT and an export embeds it, so the notice has to be reachable
 	## from the build. If this ever returns nothing, the obligation is unmet.

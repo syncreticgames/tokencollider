@@ -11,8 +11,17 @@ signal applied  ## something changed that a live session should react to
 
 var settings: RefCounted = null  # lib/Config.gd, injected by the caller
 
+## The saved port only matters to a Godot started by hand: `tokencollider
+## view` hands the desktop viewport its port, and the browser viewport talks
+## to the server it was loaded from. In a browser the setting can't apply at
+## all, so it isn't shown there.
+var show_port := not OS.has_feature("web")
+const PORT_NOTE := "Only for a viewport started by hand; tokencollider view sets its own port."
+
 
 func _ready() -> void:
+	$Margin/Rows/Port.visible = show_port
+	$Margin/Rows/Port.tooltip_text = PORT_NOTE
 	$Margin/Rows/Close.pressed.connect(func(): closed.emit())
 	$Margin/Rows/Reset.pressed.connect(_on_reset)
 	$Margin/Rows/Port/Value.value_changed.connect(_on_port_changed)
@@ -34,9 +43,9 @@ func _on_port_changed(v: float) -> void:
 		return
 	settings.set_value("sidecar/port", int(v))
 	settings.save_settings()
-	# The running sidecar keeps the port it was started on; this takes effect
-	# next launch. Say so rather than letting the user think it hot-swapped.
-	$Margin/Rows/Note.text = "Port applies on next launch."
+	# Say what this actually changes, rather than letting the user think
+	# it moved the running sidecar or the next `tokencollider view`.
+	$Margin/Rows/Note.text = PORT_NOTE
 	applied.emit()
 
 
