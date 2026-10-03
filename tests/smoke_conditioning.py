@@ -182,11 +182,13 @@ def test_file_format():
         assert back.layers == (35,) and meta["note"] == "hi"
         assert np.array_equal(back[35], one[35])
 
-        # A band export is solved at 18-34 but assembled at the sampler depth,
-        # so "layer" wins over "view_layer" when naming the depth.
+        # A band export is solved at one chart and assembled at another
+        # layer; the file records the layer it holds ("sampler_layer"), so
+        # neither label decides. Older files without it fall back to "layer",
+        # then "view_layer" (test_single_layer_files_record_their_layer).
         p2 = Path(d) / "band.safetensors"
         one.save(str(p2), {"layer": "18-34", "view_layer": "4-8"}, framework="np")
-        assert Conditioning.load(str(p2))[0].layers == (34,)
+        assert Conditioning.load(str(p2))[0].layers == (35,)
 
         # Multi-depth writes one key per depth plus the depth list.
         many = Conditioning({2: np.ones((3, 4), np.float32),
@@ -816,6 +818,27 @@ def test_check_frame():
     print("ok: export readers refuse another frame and warn on another model")
 
 
+def test_single_layer_files_record_their_layer():
+    """A single-layer file's one key doesn't say which hidden state it is, and
+    "layer" is the profile's charting setting. A profile charting at 20 whose
+    sampler reads 35 used to load its export labelled 20."""
+    from safetensors.numpy import save_file
+
+    t = np.zeros((3, 4), dtype=np.float32)
+    with tempfile.TemporaryDirectory() as d:
+        path = str(Path(d) / "one.safetensors")
+        Conditioning.single(t, 35).save(path, {"layer": "20"}, framework="np")
+        cond, meta = Conditioning.load(path)
+        assert cond.layers == (35,) and meta["sampler_layer"] == "35", (cond.layers, meta)
+        # Files from before the field: "layer" (a band's top), then view_layer.
+        for fields, want in (({"layer": "18-34"}, 34), ({"layer": "last", "view_layer": "20"}, 20),
+                             ({}, 0)):
+            old = str(Path(d) / "old.safetensors")
+            save_file({"conditioning": t[None]}, old, metadata=fields)
+            assert Conditioning.load(old)[0].layers == (want,), (fields, want)
+    print("ok: single-layer exports record the hidden state they hold")
+
+
 if __name__ == "__main__":
     test_value_type()
     test_file_format()
@@ -834,5 +857,6 @@ if __name__ == "__main__":
     test_layer_count_comes_from_config()
     test_prefix_rows_copied_not_scaled()
     test_check_frame()
+    test_single_layer_files_record_their_layer()
     test_cook_capture_range()
     print("all conditioning tests passed")

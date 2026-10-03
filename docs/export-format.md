@@ -89,6 +89,7 @@ a given model:
 | `template` | The prompt template, with `{}` where the phrase goes |
 | `template_prefix_tokens` | Tokens dropped from the front (see above) |
 | `layers` | JSON array of hidden-state indices; multi-layer files only |
+| `sampler_layer` | The hidden-state index of a single-layer file's tensor; single-layer files only, and absent from files written before 10/03/2026 |
 
 How the point was made. Provenance, not needed to load:
 
@@ -117,7 +118,7 @@ before using the tensors:
 - **Refuse** a file whose `template`, layers or `template_prefix_tokens`
   differ from the reader's. Its tokens sit in positions the sampler never
   produces. The layers are the `layer_NN` keys, or for a single-layer file the
-  index derived from `layer`.
+  index from `sampler_layer` (see below for older files).
 - **Warn, don't refuse,** when `model` differs. The field is a weights path,
   which differs between machines and between packagings of one model, and
   comparing a finetune with its base is a supported use. This matches how
@@ -135,9 +136,11 @@ The canonical reader is `Conditioning.load` in `tokencollider/conditioning.py`.
 Any reader must accept what it accepts:
 
 - A file with `conditioning` is single-layer, whatever else it holds. Its
-  layer index comes from the `layer` field (the top of a band: `"18-34"`
-  means 34), then `view_layer`, and is `0` when neither names a number. Older
-  files carry no index at all, so for them it's a label, not geometry.
+  layer index comes from `sampler_layer`. Older files lack it, so then from
+  `layer` (the top of a band: `"18-34"` means 34; `layer` is the profile's
+  charting setting, which is the sampler's layer for every built-in
+  single-layer profile), then `view_layer`, and it is `0` when none names a
+  number. For the oldest files it's a label, not geometry.
 - Otherwise, every `layer_NN` key is a layer. A file with neither is not a
   conditioning.
 - Single-layer files have no `layers` field. Older files may have no metadata

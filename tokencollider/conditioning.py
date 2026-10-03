@@ -74,6 +74,18 @@ def blend_tokens(tensors: list[np.ndarray], weights,
     return (out * scale[:, None]).astype(np.float32)
 
 
+def _single_index(meta: dict) -> int | None:
+    """The hidden-state index of a single-layer file. "sampler_layer" names it
+    exactly. Older files only have "layer", the profile's charting setting,
+    which matches the sampler's layer for every built-in single-layer profile;
+    then "view_layer", the chart the blend was solved in, as a last guess."""
+    for field in ("sampler_layer", "layer", "view_layer"):
+        index = _infer_depth(meta.get(field))
+        if index is not None:
+            return index
+    return None
+
+
 def check_frame(cond: "Conditioning", meta: dict, *, template: str,
                 layers, prefix_tokens: int, model: str | None = None) -> list[str]:
     """The reader's check from docs/export-format.md ("Which fields a reader
@@ -95,7 +107,7 @@ def check_frame(cond: "Conditioning", meta: dict, *, template: str,
         problems.append(f"template: file={meta['template']!r}  reader={template!r}")
     if layers is not None:
         layers = tuple(int(l) for l in layers)
-        if len(cond) > 1 or _infer_depth(meta.get("layer")) is not None:
+        if len(cond) > 1 or _single_index(meta) is not None:
             if cond.layers != layers:
                 problems.append(f"layers: file={list(cond.layers)}  reader={list(layers)}")
         else:
@@ -216,9 +228,12 @@ class Conditioning:
     def save(self, path: str, metadata: dict | None = None, framework: str = "pt") -> None:
         meta = dict(metadata or {})
         if len(self._t) > 1:
-            # Only multi-layer files carry the layer list, so single-layer
-            # exports stay byte-for-byte what they have always been.
             meta["layers"] = json.dumps(list(self.layers))
+        else:
+            # The one key doesn't say which hidden state it is, and "layer" is
+            # the profile's CHARTING setting ("20", "18-34", "last"), which is
+            # the sampler's layer only by coincidence. Record the real one.
+            meta["sampler_layer"] = str(self.layers[0])
         tensors = self.to_tensors()
         if framework == "pt":
             import torch
@@ -235,22 +250,15 @@ class Conditioning:
     def load(cls, path: str) -> tuple["Conditioning", dict]:
         """Read a conditioning file written by this tool. Returns the stack
         and the file's metadata. Single-key files load as a size-one stack at
-        the layer named in metadata ("layer"), falling back to 0 when the file
-        predates that field — the index is a label there, not geometry."""
+        the layer their metadata names, or 0 when it names none (the index is
+        a label there, not geometry)."""
         from safetensors import safe_open
 
         with safe_open(str(path), framework="np") as f:
             keys = list(f.keys())
             meta = dict(f.metadata() or {})
             if SINGLE_KEY in keys:
-                # "layer" is the embedder's sampler config, which is the layer
-                # the tensor was assembled at. "view_layer" is the chart the
-                # blend was solved in and can differ (a cooked band export is
-                # solved at 4-8 but assembled at the sampler layer), so it is
-                # only a fallback.
-                index = _infer_depth(meta.get("layer"))
-                if index is None:
-                    index = _infer_depth(meta.get("view_layer"))
+                index = _single_index(meta)
                 return cls.single(f.get_tensor(SINGLE_KEY),
                                   0 if index is None else index), meta
             indices = [int(k[len(LAYER_PREFIX):]) for k in keys
