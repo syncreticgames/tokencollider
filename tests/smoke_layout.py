@@ -365,6 +365,21 @@ def test_http_server():
         assert Path(r["path"]).parent == Path(tmp_root).resolve() / "sweeps"
         Path(r["path"]).unlink()
 
+    # mirror: the negative half is a different tensor, beside the positive
+    from safetensors.numpy import load_file
+    status, pair = call("POST", "/export", {"coords": entry["coords"], "mirror": True})
+    assert status == 200 and pair["mirror"]["role"] == "negative", pair
+    pos, neg = load_file(pair["path"]), load_file(pair["mirror"]["path"])
+    assert any(not np.allclose(pos[k], neg[k]) for k in pos), "mirror equals positive"
+    Path(pair["path"]).unlink()
+    Path(pair["mirror"]["path"]).unlink()
+    # ...but the centre is its own reflection: refused, and nothing written
+    before = set(Path(tmp_root).iterdir())
+    status, err = call("POST", "/export",
+                       {"coords": entry["coords"], "mirror": True, "center": True})
+    assert status == 400 and "centre" in err["error"], (status, err)
+    assert set(Path(tmp_root).iterdir()) == before, "a half of the pair was written"
+
     # universe snapshot: named file, header + phrase-per-line, name sanitized
     from tokencollider import server as srv
     status, uni = call("POST", "/export_universe", {"name": "../evil/smoketest"})

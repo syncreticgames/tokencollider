@@ -679,6 +679,14 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
                 result["void"] = stack.void_at(layer, body["coords"], basis, target)
                 self._send(200, result)
             elif self.path == "/export":
+                if center and body.get("mirror"):
+                    # The mirror reflects through the chart origin, which IS
+                    # the landmark mean, so the centre is its own reflection:
+                    # both halves would be one tensor and CFG would have no
+                    # difference to push along. Refuse before writing either.
+                    raise ValueError(
+                        "mirror needs a cursor away from the centre: the centre "
+                        "is its own reflection, so the pair would be identical")
                 band = (layer, layer) if isinstance(layer, int) else layer
                 if body.get("inserter") is not None:
                     # Chart and inserter are separate axes, and collapsing
