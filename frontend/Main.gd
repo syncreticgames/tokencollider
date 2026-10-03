@@ -20,6 +20,7 @@ const Matcher := preload("res://lib/Matcher.gd")
 const Oklab := preload("res://lib/Oklab.gd")
 const ShapeAtlas := preload("res://lib/ShapeAtlas.gd")
 const SidecarClient := preload("res://lib/Sidecar.gd")
+const RequestGate := preload("res://lib/RequestGate.gd")
 const Config := preload("res://lib/Config.gd")
 
 
@@ -551,6 +552,8 @@ var ghost_layer: Node3D = null   # viewport/Ghosts.gd
 var mass: Node3D = null          # viewport/MassView.gd
 var menu: CanvasLayer = null     # ui/MenuOverlay.gd, the front door
 var stale_replies := 0           # layout replies dropped in a row (see _apply_layout)
+var interrogate_gate = RequestGate.new()  # drops /interrogate replies for a view since left
+var blend_gate = RequestGate.new()        # drops /blend replies for a cursor since moved
 
 # --- color axes ----------------------------------------------------------
 # The maths lives in lib/Oklab.gd, verified against tokencollider/oklab.py. The picker's
@@ -767,8 +770,11 @@ func _update_mass_view() -> void:
 	## swell by their |weight| (stellar mass) and tethers draw the pull —
 	## green positive, red negative, brightness = magnitude. A fat tether to
 	## something far away means a hub word has taken over the blend.
+	var ticket: Dictionary = blend_gate.open(_view_signature())
 	var res = await _api("/blend", _cursor_body())
-	if res == null or cursor == null:
+	# A newer drop, or a view change, makes this reply's weights and tethers
+	# describe a cursor that is no longer there.
+	if res == null or cursor == null or not blend_gate.is_current(ticket, _view_signature()):
 		return
 	mass.show_blend(res["weights"], landmarks, cursor.position)
 	if not mass.is_showing():
@@ -832,10 +838,17 @@ func _interrogate() -> void:
 	if not _cursor_valid():
 		return
 	status_label.text = "interrogating ..."
+	var ticket: Dictionary = interrogate_gate.open(_view_signature())
 	var res = await _api("/interrogate", _cursor_body({"k": 12}))
 	if res == null:
 		return
-	ghost_layer.begin(_view_signature())
+	if not interrogate_gate.is_current(ticket, _view_signature()):
+		# Scrubbed, switched axes or asked again while this was out: its
+		# coordinates belong to a chart that is no longer on screen.
+		if str(ticket["view"]) != _view_signature():
+			status_label.text = "view changed during interrogation (I to ask again)"
+		return
+	ghost_layer.begin(str(ticket["view"]))
 	var top := "(no landmarks)"
 	if res["nearest_landmarks"].size() > 0:
 		var n0 = res["nearest_landmarks"][0]
