@@ -26,10 +26,9 @@ LAYER_PREFIX = "layer_"
 def fuse_stack(tensors):
     """Flatten per-layer (1, seq, dim) tensors, in the order given, to the
     (1, seq, n*dim) layout ComfyUI's Krea 2 encoder hands the DiT: layer i
-    owns features [i*dim, (i+1)*dim). Mirrors
-    `out.permute(0, 2, 1, 3).reshape(b, seq, n * h)` on a (B, n, seq, h)
-    stack, which comfy/ldm/krea2/model.py undoes with
-    `context.reshape(b, seq, txtlayers, txtdim)`."""
+    owns features [i*dim, (i+1)*dim). Equivalent to the layer-major flatten in
+    comfy/text_encoders/krea2.py, which the DiT in comfy/ldm/krea2/model.py
+    reshapes back to (B, seq, n, dim)."""
     import torch
 
     stacked = torch.stack(tensors, dim=1)  # (1, n, seq, dim)
