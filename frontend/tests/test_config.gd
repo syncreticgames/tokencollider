@@ -37,15 +37,21 @@ func test_wrong_type_on_disk_falls_back() -> void:
 	## type check that String flows into integer arithmetic somewhere else.
 	var raw := ConfigFile.new()
 	raw.set_value("sidecar", "port", "8765")
-	raw.save(Config.PATH)
+	raw.save(Config.path)
 	var c = Config.new()
 	harness.eq(c.get_value("sidecar/port"), 8765, "string port falls back to int default")
 	c.reset()
 
 func test_corrupt_file_still_yields_defaults() -> void:
-	var f := FileAccess.open(Config.PATH, FileAccess.WRITE)
+	var f := FileAccess.open(Config.path, FileAccess.WRITE)
 	f.store_string("this is not a config file [[[ = = ]]] \n\n garbage")
 	f.close()
 	var c = Config.new()
 	harness.eq(c.get_value("window/width"), 1280, "corrupt file yields defaults")
 	c.reset()
+
+func test_suites_never_touch_the_real_settings() -> void:
+	## The suites share `user://` with the app; the runner points Config at a
+	## scratch file, or `_fresh()` and the corrupt-file cases below would wipe
+	## the user's saved settings on every test run.
+	harness.ok(Config.path != Config.DEFAULT_PATH, "tests write a scratch settings file")

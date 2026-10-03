@@ -26,7 +26,13 @@ func close(a: float, b: float, tol: float, what: String) -> void:
 	if absf(a - b) > tol:
 		failures.append("%s: %f != %f (tol %f)" % [what, a, b, tol])
 
+const Config := preload("res://lib/Config.gd")
+const TEST_SETTINGS := "user://test_settings.cfg"
+
 func _init() -> void:
+	# The suites and the app share `user://`; point Config at a scratch file
+	# so a test run never touches the user's real settings.
+	Config.path = TEST_SETTINGS
 	var dir := DirAccess.open("res://tests")
 	if dir == null:
 		push_error("no tests directory")
@@ -52,6 +58,7 @@ func _init() -> void:
 			if name.begins_with("test_"):
 				suite.call(name)
 				ran += 1
+	DirAccess.remove_absolute(TEST_SETTINGS)
 	if failures.is_empty():
 		print("ok: %d gdscript checks in %d tests" % [checks, ran])
 		quit(0)

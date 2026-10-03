@@ -18,7 +18,11 @@ extends RefCounted
 ## - Types are checked on read. A hand-edited file with `port = "8765"` gives
 ##   the default rather than propagating a String into integer arithmetic.
 
-const PATH := "user://settings.cfg"
+const DEFAULT_PATH := "user://settings.cfg"
+
+## Where settings live. Only the test runner changes it, so the suites never
+## read or overwrite the user's real settings (they share `user://`).
+static var path := DEFAULT_PATH
 
 const DEFAULTS := {
 	"sidecar/port": 8765,
@@ -45,7 +49,7 @@ func load_settings() -> void:
 	## Errors are deliberately swallowed. Any failure leaves an empty
 	## ConfigFile, which yields defaults for every key.
 	_cfg = ConfigFile.new()
-	_cfg.load(PATH)
+	_cfg.load(path)
 	_loaded = true
 
 
@@ -75,7 +79,7 @@ func set_value(key: String, value) -> void:
 
 
 func save_settings() -> bool:
-	return _cfg.save(PATH) == OK
+	return _cfg.save(path) == OK
 
 
 func reset() -> void:
@@ -83,4 +87,4 @@ func reset() -> void:
 	## settings" in the UI does not leave a stale file to resurrect later.
 	_cfg = ConfigFile.new()
 	_loaded = true
-	_cfg.save(PATH)
+	_cfg.save(path)
