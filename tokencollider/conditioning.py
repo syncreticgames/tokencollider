@@ -6,11 +6,9 @@ same object here, an ordered map from hidden-state index to a (seq, dim)
 array, so a single-layer model is a Conditioning of size one instead of a
 separate code path.
 
-File format. A one-layer conditioning writes exactly what this tool has always
-written: key "conditioning", shape (1, seq, dim), no extra metadata. Multi-layer
-writes one "layer_NN" key per layer plus a "layers" metadata field listing them.
-Readers sniff for "conditioning" first, so every file already on disk still
-loads and every existing ComfyUI workflow keeps working.
+The file format is a contract with other programs: docs/export-format.md.
+This module is its canonical reader and writer, and the doc wins if the two
+disagree.
 """
 
 import json

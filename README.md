@@ -123,6 +123,8 @@ Further reading:
 - [docs/design.md](docs/design.md): design notes and how the two halves fit.
 - [docs/vocabulary.md](docs/vocabulary.md): the project's terms.
 - [docs/security.md](docs/security.md): what the sidecar exposes and refuses.
+- [docs/export-format.md](docs/export-format.md): the export file format, for
+  programs that read or write it.
 - [docs/credits.md](docs/credits.md): licences and what each dependency asks.
 
 ## Built on
