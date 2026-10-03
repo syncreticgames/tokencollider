@@ -756,6 +756,28 @@ def test_server_serialises_concurrent_requests():
     print(f"ok: {len(codes)} concurrent requests, all answered 200")
 
 
+def test_viewport_launch_keeps_the_token_off_the_command_line():
+    """The browser gets a path to a private redirect page, never the token:
+    other accounts can read a process's arguments, not this user's files."""
+    import os
+    import stat
+    from unittest import mock
+    from tokencollider import server as srv
+
+    url = "http://127.0.0.1:8765/#token=s3cret-token"
+    with mock.patch.object(srv.webbrowser, "open") as opened:
+        page = srv.open_viewport(url)
+    try:
+        (arg,), _ = opened.call_args
+        assert arg.startswith("file://") and "s3cret" not in arg, arg
+        assert url in page.read_text(encoding="utf-8")
+        if os.name == "posix":
+            assert stat.S_IMODE(page.stat().st_mode) == 0o600, oct(page.stat().st_mode)
+    finally:
+        page.unlink()
+    print("ok: the browser is handed a private redirect file, not the token")
+
+
 if __name__ == "__main__":
     test_reconstruct_roundtrip()
     test_layout_stability()
@@ -772,4 +794,5 @@ if __name__ == "__main__":
     test_knn_radius_skips_self_on_float32()
     test_density_caches_keep_one_corpus_per_layer()
     test_server_serialises_concurrent_requests()
+    test_viewport_launch_keeps_the_token_off_the_command_line()
     print("all layout/server smoke tests passed")

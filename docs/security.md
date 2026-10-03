@@ -31,10 +31,16 @@ tool does survives that.
   reachable from the network.
 - **A session token on every API request.** `serve` makes a random token
   per session (or takes `TOKENCOLLIDER_TOKEN`) and refuses any request
-  without it in the `X-TokenCollider-Token` header. Desktop Godot gets it in
-  its environment. The browser viewport gets it in the URL fragment
-  (`#token=...`), which browsers never send to a server. This is what keeps
+  without it in the `X-TokenCollider-Token` header. This is what keeps
   other local processes out, and it is the main lock against web pages.
+  It never goes on a command line, since any account can read another
+  process's arguments:
+  - Desktop Godot gets it in its environment, which only the same user can
+    read.
+  - The browser viewport gets it in the URL fragment (`#token=...`), which
+    browsers never send to a server. The browser isn't handed that URL
+    directly: `view` writes a redirect page that only this user can read
+    (mode 0600), opens that file, and deletes it on shutdown.
 - **The `Host` header must be `127.0.0.1:<port>` or `localhost:<port>`.** A
   rebinding page's requests still carry its own domain in `Host`, so they are
   refused, including requests for the web build's own files.
@@ -73,8 +79,8 @@ path, absolute-path and traversal cases, and asserts no stray file appears.
 - The cache and exports carry every embedded phrase in plaintext, and vectors
   decode back to text. `.gitignore` covers `embeddings.db` and `exports/`;
   a packaged build should say so in the UI, not only in a dotfile.
-- The token is visible to anything that can read the process environment
-  or the browser's history, which means code already running as the user.
-  That is out of scope above.
+- The token is visible to anything that can read this user's process
+  environment, browser history or temp files, which means code already
+  running as the user. That is out of scope above.
 - No rate limiting. A local denial of service is possible and low value to an
   attacker, but a runaway client can wedge the GPU.

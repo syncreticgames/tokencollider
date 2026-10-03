@@ -865,6 +865,29 @@ def find_godot() -> str:
     return godot
 
 
+def open_viewport(url: str) -> Path:
+    """Open the browser viewport without putting the token on a command line.
+
+    `webbrowser.open(url)` hands the URL to the browser as an argument, and
+    any account on the machine can read another process's arguments (`ps`,
+    /proc/<pid>/cmdline). So, as Jupyter does, write a redirect page that
+    only this user can read, and open that file: the arguments then carry a
+    path, and the token stays inside the file. Returns the file, which the
+    caller deletes on shutdown (the browser may still be reading it)."""
+    import html
+    import tempfile
+
+    fd, name = tempfile.mkstemp(prefix="tokencollider-open-", suffix=".html")  # mode 0600
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write('<!doctype html><meta charset="utf-8"><title>TokenCollider</title>'
+                f'<meta http-equiv="refresh" content="0;url={html.escape(url)}">'
+                f"<script>location.replace({json.dumps(url)})</script>"
+                f'<a href="{html.escape(url)}">Open TokenCollider</a>')
+    page = Path(name)
+    webbrowser.open(page.as_uri())
+    return page
+
+
 def serve(stack: LayerStack, port: int = 8765, export_root: Path | None = None,
           layer_bounds: tuple[int | None, int | None] = (None, None),
           godot: str | None = None, web: bool = False) -> None:
@@ -887,11 +910,12 @@ def serve(stack: LayerStack, port: int = 8765, export_root: Path | None = None,
     print(f"[tokencollider] exports confined to {root}")
     if godot is None and not web:
         print(f"[tokencollider] session token: {token} (send it as {TOKEN_HEADER})")
+    page = None
     try:
         if web:
             url = f"http://127.0.0.1:{port}/#token={token}"
             print(f"[tokencollider] viewport: {url}")
-            webbrowser.open(url)
+            page = open_viewport(url)
             server.serve_forever()
         elif godot is None:
             server.serve_forever()
@@ -906,3 +930,5 @@ def serve(stack: LayerStack, port: int = 8765, export_root: Path | None = None,
         if godot is not None:
             server.shutdown()
         server.server_close()
+        if page is not None:
+            page.unlink(missing_ok=True)
