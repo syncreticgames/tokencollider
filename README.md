@@ -55,16 +55,29 @@ viewport:
 
 ```
 pip install tokencollider-<version>-py3-none-any.whl
-tokencollider --fake universes/words.txt
+tokencollider --fake
 ```
 
 `--fake` uses deterministic fake embeddings, so it runs with no GPU and no
-model. To use a real encoder, copy `profiles.example.yaml` to `profiles.yaml`
-and point it at your model files (`TOKENCOLLIDER_PROFILES` names another
-location).
+model. To use a real encoder, copy
+[`profiles.example.yaml`](profiles.example.yaml) to `profiles.yaml` in
+TokenCollider's home and point it at your model files.
+
+TokenCollider's home holds the embedding cache, `profiles.yaml`, exports and
+saved universes. The cache and exports contain every phrase you embed, in
+plain text.
+
+- Installed: `~/.local/share/tokencollider` on Linux,
+  `%LOCALAPPDATA%\TokenCollider` on Windows, and
+  `~/Library/Application Support/TokenCollider` on macOS.
+- Source checkout: the repo itself, with all four gitignored.
+- `TOKENCOLLIDER_HOME` overrides both. `TOKENCOLLIDER_PROFILES` points at a
+  `profiles.yaml` somewhere else.
 
 `tokencollider view` (the default command) starts the sidecar and opens the
-viewport in your browser. `tokencollider view --desktop` opens the desktop
+viewport in your browser. To add an image as a landmark, press Tab and type
+`@` and the image or folder path, then Enter. Dropping files on the window
+works only in the desktop viewport. `tokencollider view --desktop` opens the desktop
 Godot viewport instead; it needs a source checkout and
 [Godot 4](https://godotengine.org/download) on your PATH.
 

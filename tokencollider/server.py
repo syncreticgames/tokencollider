@@ -103,11 +103,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import images, provenance
+from . import images, paths, provenance
 from .layout import LayerStack, LayoutSession
 
-EXPORT_DIR = Path(__file__).resolve().parent.parent / "exports"
-UNIVERSE_DIR = Path(__file__).resolve().parent.parent / "universes"
+EXPORT_DIR = paths.home() / "exports"
+UNIVERSE_DIR = paths.home() / "universes"
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 # The Godot web export. CI builds it into the wheel; a checkout gets it from
 # tools/export_web.sh. Absent, `view` falls back to desktop Godot.
@@ -163,7 +163,7 @@ def export_universe(stack: LayerStack, name: str | None,
     stem = Path(name).stem  # strip any directory part and extension
     if not stem:
         raise ValueError(f"unusable universe name: {name!r}")
-    UNIVERSE_DIR.mkdir(exist_ok=True)
+    UNIVERSE_DIR.mkdir(parents=True, exist_ok=True)
     path = UNIVERSE_DIR / f"{stem}.txt"
     fields = _universe_extra(stack, extra)
     if view:
@@ -395,7 +395,7 @@ def colonize(stack: LayerStack, layer, coords, name: str | None,
         meta = provenance.build_meta(
             stack.embedder, phrases,
             extra=({"manual": manual} if manual else {}) | extra)
-        UNIVERSE_DIR.mkdir(exist_ok=True)
+        UNIVERSE_DIR.mkdir(parents=True, exist_ok=True)
         stem = Path(name or time.strftime("neighborhood_%Y%m%d_%H%M%S")).stem
         path = UNIVERSE_DIR / f"{stem}.txt"
         provenance.write_universe(path, phrases, meta,

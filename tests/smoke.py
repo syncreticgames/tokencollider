@@ -477,6 +477,33 @@ def test_cli_parsing():
     print("ok: cli parses the short forms, options either side of the command")
 
 
+
+def test_data_paths():
+    """A checkout keeps its files beside the repo; an install keeps them in
+    the user data folder, never inside site-packages; TOKENCOLLIDER_HOME wins."""
+    import os
+    from unittest import mock
+    from tokencollider import paths
+    assert paths.is_checkout()
+    with mock.patch.dict(os.environ, {}, clear=False):
+        os.environ.pop("TOKENCOLLIDER_HOME", None)
+        assert paths.home() == paths.REPO
+        os.environ["TOKENCOLLIDER_HOME"] = "/srv/tc"
+        assert paths.home() == Path("/srv/tc")
+    with mock.patch.object(paths, "is_checkout", return_value=False), \
+            mock.patch.dict(os.environ, {"XDG_DATA_HOME": "/x/data"}):
+        os.environ.pop("TOKENCOLLIDER_HOME", None)
+        with mock.patch.object(paths.sys, "platform", "linux"):
+            assert paths.home() == Path("/x/data/tokencollider")
+            os.environ["XDG_DATA_HOME"] = "relative/ignored"
+            assert paths.home() == Path.home() / ".local/share/tokencollider"
+        with mock.patch.object(paths.sys, "platform", "win32"), \
+                mock.patch.dict(os.environ, {"LOCALAPPDATA": "C:/Users/u/AppData/Local"}):
+            assert paths.home() == Path("C:/Users/u/AppData/Local/TokenCollider")
+        with mock.patch.object(paths.sys, "platform", "darwin"):
+            assert paths.home() == Path.home() / "Library/Application Support/TokenCollider"
+    print("ok: data paths (checkout, installed per platform, TOKENCOLLIDER_HOME)")
+
 if __name__ == "__main__":
     test_store_roundtrip()
     test_store_forget_large_batch()
@@ -490,5 +517,6 @@ if __name__ == "__main__":
     test_bridge_dropout_pair()
     test_bridge_alternate_anchors()
     test_cli_parsing()
+    test_data_paths()
     test_bridge_dialect_comes_from_profile_data()
     print("all smoke tests passed")

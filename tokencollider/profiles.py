@@ -7,7 +7,8 @@ None of it is code. Two files, split along what belongs in version control:
   model: the prompt scaffold, the sampler layers, whether exports drop the
   template prefix, which band is worth charting. Findings about a model,
   the same for everyone.
-- `profiles.yaml` beside the repo (gitignored; see `profiles.example.yaml`)
+- `profiles.yaml` in TokenCollider's home: beside the repo in a checkout, the user
+  data folder when installed (see `paths.py`; gitignored; see `profiles.example.yaml`)
   supplies where the files are on one machine, and may define new profiles,
   from scratch or by extending another:
 
@@ -28,6 +29,8 @@ that reads several.
 import os
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+
+from . import paths
 
 
 @dataclass(frozen=True)
@@ -74,8 +77,10 @@ class ModelProfile:
 
 BUILTIN_FILE = Path(__file__).resolve().parent / "builtin_profiles.yaml"
 
-# profiles.yaml lives beside the repo. $TOKENCOLLIDER_PROFILES points somewhere else.
-PROFILES_FILE = Path(__file__).resolve().parent.parent / "profiles.yaml"
+# profiles.yaml lives in TokenCollider's home (beside the repo in a checkout,
+# the user data folder when installed; see paths.py). $TOKENCOLLIDER_PROFILES
+# points somewhere else.
+PROFILES_FILE = paths.home() / "profiles.yaml"
 
 # Fields a profiles.yaml entry may set. "model" maps to model_path because
 # that is what it reads like in a config file.

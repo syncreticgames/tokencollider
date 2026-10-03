@@ -165,6 +165,12 @@ func _refresh() -> void:
 func _on_files_dropped(files: PackedStringArray) -> void:
 	## Pictures (or folders of them) dropped on the window become image
 	## landmarks, the same as typing "@path" in the word box.
+	if OS.has_feature("web"):
+		# The browser hands the page the file's bytes, never its path, and
+		# the sidecar can only open paths. Say what works instead.
+		status_label.text = "Dropping files only works in the desktop viewport. " \
+			+ "Press Tab and type @ and the image or folder path, then Enter."
+		return
 	var paths: Array = []
 	for f in files:
 		paths.append(f)

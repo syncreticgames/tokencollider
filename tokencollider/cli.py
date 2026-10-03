@@ -6,12 +6,12 @@ from pathlib import Path
 
 import numpy as np
 
-from . import profiles, provenance
+from . import paths, profiles, provenance
 from .embedder import Embedder, FakeEmbedder, load_universe_file
 from .store import EmbeddingStore
 from .universe import Universe, cosine
 
-DEFAULT_DB = Path(__file__).resolve().parent.parent / "embeddings.db"
+DEFAULT_DB = paths.home() / "embeddings.db"
 
 
 def load_universe(path: Path, embedder) -> tuple[list[str], dict | None]:
@@ -292,7 +292,7 @@ def add_common_options(parser, suppress: bool = False) -> None:
                              "'lo-hi' (default: the profile's)")
     parser.add_argument("--db", type=Path,
                         default=default if suppress else DEFAULT_DB,
-                        help="embedding cache (default: embeddings.db)")
+                        help=f"embedding cache (default: {DEFAULT_DB})")
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -21,7 +21,7 @@ offset_left = 16.0
 offset_top = 16.0
 offset_right = 336.0
 offset_bottom = 52.0
-placeholder_text = "type a landmark, press Enter"
+placeholder_text = "Tab: type a landmark, or @ and an image or folder path, then Enter"
 
 [node name="FlyEntry" type="LineEdit" parent="UI"]
 anchor_left = 1.0
