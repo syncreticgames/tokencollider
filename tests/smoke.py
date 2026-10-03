@@ -531,6 +531,25 @@ def test_bridge_refuses_an_anchor_from_another_frame():
     print("ok: the bridge refuses an anchor exported in another frame")
 
 
+def test_bridge_caption_ext_without_dot():
+    """ai-toolkit configs write `caption_ext: txt`; the bridge takes it with
+    or without the dot, and reads the same caption either way."""
+    from tokencollider import bridge
+    from tokencollider.embedder import FakeEmbedder
+
+    for ext in ("txt", ".txt"):
+        with tempfile.TemporaryDirectory() as d:
+            dataset = Path(d) / "set"
+            dataset.mkdir()
+            (dataset / "a.png").write_bytes(b"fake")
+            (dataset / "a.txt").write_text("a red apple", encoding="utf-8")
+            written = bridge.write_cache(dataset, FakeEmbedder(dim=32), [], "zimage",
+                                         caption_ext=ext)
+            want = bridge.cache_hash("a red apple", "zimage")
+            assert any(want in p.name for p in written), (ext, [p.name for p in written])
+    print("ok: the bridge reads captions with caption_ext given with or without the dot")
+
+
 if __name__ == "__main__":
     test_store_roundtrip()
     test_store_forget_large_batch()
@@ -542,6 +561,7 @@ if __name__ == "__main__":
     test_provenance_roundtrip()
     test_bridge_cache()
     test_bridge_refuses_an_anchor_from_another_frame()
+    test_bridge_caption_ext_without_dot()
     test_bridge_dropout_pair()
     test_bridge_alternate_anchors()
     test_cli_parsing()

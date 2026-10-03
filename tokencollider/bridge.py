@@ -210,6 +210,12 @@ def write_cache(dataset: Path, embedder, anchors: list[Path], arch: str,
     through to encoding the blank live, which needs the text encoder the
     bridge exists to avoid, and the resulting embedding would carry no
     anchor."""
+    # ai-toolkit's own configs write `caption_ext: txt`, without the dot, and
+    # Path.with_suffix refuses that, so accept both spellings.
+    if not caption_ext.strip("."):
+        raise SystemExit(f"[tokencollider] caption extension {caption_ext!r} is empty")
+    if not caption_ext.startswith("."):
+        caption_ext = "." + caption_ext
     if arch not in ARCHS:
         raise SystemExit(f"[tokencollider] no ai-toolkit cache contract for arch {arch!r} "
                          f"(known: {', '.join(ARCHS)})")
