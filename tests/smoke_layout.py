@@ -386,6 +386,12 @@ def test_http_server():
     assert status == 200 and uni["n_phrases"] == 7
     saved = Path(uni["path"])
     assert saved.parent == srv.UNIVERSE_DIR and saved.name == "smoketest.txt", uni
+    # saves live apart from the tracked samples, and never replace each other
+    assert srv.UNIVERSE_DIR.name == "saved" and srv.UNIVERSE_DIR.parent.name == "universes"
+    status, again = call("POST", "/export_universe", {"name": "smoketest"})
+    assert status == 200 and Path(again["path"]).name == "smoketest_2.txt", again
+    assert saved.exists()
+    Path(again["path"]).unlink()
     saved_phrases, saved_meta = provenance.read_universe(saved)
     assert saved_phrases == [e["text"] for e in lay["landmarks"]]
     assert saved_meta["fingerprint"] == uni["fingerprint"]

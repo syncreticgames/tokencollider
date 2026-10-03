@@ -21,6 +21,8 @@ CLAUDE.md
 # Local experiment output.
 exports/**
 universes/session_*.txt
+# Saved universes: snapshots and colonized neighborhoods, full of your phrases.
+universes/saved/
 *.log
 
 # Python build artefacts.

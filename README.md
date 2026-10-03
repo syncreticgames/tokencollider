@@ -70,7 +70,9 @@ plain text.
 - Installed: `~/.local/share/tokencollider` on Linux,
   `%LOCALAPPDATA%\TokenCollider` on Windows, and
   `~/Library/Application Support/TokenCollider` on macOS.
-- Source checkout: the repo itself, with all four gitignored.
+- Source checkout: the repo itself. The cache, `profiles.yaml` and exports
+  are gitignored, and saved universes go to `universes/saved/`, also
+  gitignored, apart from the sample lists.
 - `TOKENCOLLIDER_HOME` overrides both. `TOKENCOLLIDER_PROFILES` points at a
   `profiles.yaml` somewhere else.
 

@@ -48,7 +48,8 @@ own subspace, and the mean of this neighborhood lies in no other chart's.
                       "mirror" also writes the centroid reflection as the
                       negative half of a polarity pair
   POST /export_universe {"name": str?}  -> writes the loaded landmark set to
-                                       universes/<name|session_TIMESTAMP>.txt
+                                       universes/saved/<name|session_TIMESTAMP>.txt
+                                       (a taken name gets _2, _3, ...)
                                        with a #tokencollider provenance header (see
                                        tokencollider.provenance)
   POST /colonize     {"coords": [6 floats], "k": int?, "name": str?,
@@ -107,7 +108,11 @@ from . import images, paths, provenance
 from .layout import LayerStack, LayoutSession
 
 EXPORT_DIR = paths.home() / "exports"
-UNIVERSE_DIR = paths.home() / "universes"
+# Saved universes (snapshots, colonized neighborhoods). A subfolder, so in a
+# checkout they sit apart from the tracked samples in universes/: no save can
+# overwrite a sample, and the folder is gitignored, since saves carry every
+# phrase in plaintext.
+UNIVERSE_DIR = paths.home() / "universes" / "saved"
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 # The Godot web export. CI builds it into the wheel; a checkout gets it from
 # tools/export_web.sh. Absent, `view` falls back to desktop Godot.
@@ -149,6 +154,19 @@ def safe_export_path(path: str, root: Path | None = None) -> str:
     return str(dest)
 
 
+def _free_universe_path(name: str) -> Path:
+    """UNIVERSE_DIR/<stem>.txt, or <stem>_2.txt and up when that is taken:
+    a save never replaces an earlier one."""
+    stem = Path(name).stem  # strip any directory part and extension
+    if not stem:
+        raise ValueError(f"unusable universe name: {name!r}")
+    UNIVERSE_DIR.mkdir(parents=True, exist_ok=True)
+    path, n = UNIVERSE_DIR / f"{stem}.txt", 2
+    while path.exists():
+        path, n = UNIVERSE_DIR / f"{stem}_{n}.txt", n + 1
+    return path
+
+
 def export_universe(stack: LayerStack, name: str | None,
                     extra: dict | None = None, prefix: str = "session",
                     view: dict | None = None) -> dict:
@@ -160,11 +178,7 @@ def export_universe(stack: LayerStack, name: str | None,
         raise ValueError("no landmarks to export")
     if name is None:
         name = time.strftime(f"{prefix}_%Y%m%d_%H%M%S")
-    stem = Path(name).stem  # strip any directory part and extension
-    if not stem:
-        raise ValueError(f"unusable universe name: {name!r}")
-    UNIVERSE_DIR.mkdir(parents=True, exist_ok=True)
-    path = UNIVERSE_DIR / f"{stem}.txt"
+    path = _free_universe_path(name)
     fields = _universe_extra(stack, extra)
     if view:
         # Presentation state (camera, sliders, cursor...) rides in the header
@@ -398,9 +412,7 @@ def colonize(stack: LayerStack, layer, coords, name: str | None,
         meta = provenance.build_meta(
             stack.embedder, phrases,
             extra=({"manual": manual} if manual else {}) | extra)
-        UNIVERSE_DIR.mkdir(parents=True, exist_ok=True)
-        stem = Path(name or time.strftime("neighborhood_%Y%m%d_%H%M%S")).stem
-        path = UNIVERSE_DIR / f"{stem}.txt"
+        path = _free_universe_path(name or time.strftime("neighborhood_%Y%m%d_%H%M%S"))
         provenance.write_universe(path, phrases, meta,
                                   getattr(stack.embedder, "store", None))
         result = {"path": str(path), "n_phrases": len(phrases),
