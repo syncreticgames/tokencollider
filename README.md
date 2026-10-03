@@ -35,8 +35,8 @@ two the tool has been run against:
 A *universe* is a list of phrases that defines a local metric. Its embeddings
 are centred on their mean, which removes whatever all members share. The top
 principal components are the directions the universe actually varies along,
-and similarity is measured inside that subspace. So a question like "is Link
-closer to Mario than to Donkey Kong?" has two answers:
+and similarity is measured inside that subspace. So a question like "is an
+otter closer to a fox than to a heron?" has two answers:
 
 - **raw**: cosine similarity in the full embedding space.
 - **relative**: cosine similarity in the universe's own coordinates.
