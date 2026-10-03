@@ -1,15 +1,10 @@
 extends Node
 ## The sidecar HTTP client. Everything that knows a URL lives here.
 ##
-## Previously this was `_api()` inside Main.gd, which reached directly into
-## `status_label` to report failures. That coupling is why the transport could
-## not be tested or reused: exercising a request meant standing up the whole
-## scene, and any other screen wanting to talk to the sidecar would have had to
-## own a status label.
-##
-## Now it emits. Callers decide what a failure looks like, so a main menu can
-## show a connection dot and the viewport can show a status line, from the same
-## client.
+## It reports failures by signal and owns no UI. So a request can be tested
+## without a scene, and each caller decides what a failure looks like: a main
+## menu can show a connection dot and the viewport a status line, from the
+## same client.
 
 signal request_failed(what: String)   ## human-readable, safe to show a user
 signal unreachable                    ## the sidecar is not answering at all

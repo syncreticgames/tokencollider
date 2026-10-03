@@ -31,17 +31,15 @@ frontend/
 ## The three rules
 
 **1. `lib/` is pure.** No `Node`, no scene, no network. If it needs any of
-those it is not a lib module. This is what makes it testable headlessly, and
-headless testing is the only kind available when nobody can look at the
-screen.
+those it is not a lib module. That keeps it testable headlessly, which is how
+the tests run, on a desktop and in CI alike.
 
 **2. Components receive state and emit intent.** A `viewport/` component
 takes a `Context` and reads from it; when it wants the world changed it emits
 a signal and lets `Main.gd` decide. No component calls back into the scene.
-That is the property that lets one be moved, replaced, or tested alone, and it
-is why the old code could not be split: constellations, ghosts and the mass
-view all reached into `Main` for the same handful of things, so moving any one
-of them pulled the rest along.
+That is the property that lets one be moved, replaced, or tested alone.
+Components that reach into `Main` for shared state can't be separated: moving
+one pulls along everything else that reaches for the same things.
 
 **3. Shared goes on the Context; private stays private.** If two components
 need a value it belongs on `Context.gd`. If one does, it belongs to that
@@ -72,11 +70,11 @@ is silently WRONG, not approximate, and the symptom is an export from
 coordinates the user never selected. Compare `ViewState.signature()` with
 `==`; never translate a position between two of them.
 
-**Never bulk find-and-replace across a `.gd` file.** During this refactor a
-substitution of `landmarks -> ctx.landmarks` also rewrote the string literal
-`"/landmarks"` (the API endpoint) and the JSON key `"n_landmarks"`. Neither
-fails to compile. Both fail at runtime, far from the edit. Substitute inside
-code spans only, or do it by hand.
+**Never bulk find-and-replace across a `.gd` file.** A substitution like
+`landmarks -> ctx.landmarks` also rewrites the string literal `"/landmarks"`
+(an API endpoint) and the JSON key `"n_landmarks"`. Neither fails to compile.
+Both fail at runtime, far from the edit. Substitute inside code spans only, or
+do it by hand.
 
 **Godot's `class_name` is not registered under `--script`.** Modules are
 loaded with `preload` so headless tests work, and so a reader can see the

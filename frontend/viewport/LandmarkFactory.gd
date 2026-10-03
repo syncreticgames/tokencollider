@@ -109,7 +109,7 @@ func make_landmark(text: String, source: String = "preload", density: int = -1, 
 	tag.name = "Tag"
 	tag.text = str(entry.get("label", text))
 	# Above the picture (1.6 tall, centred, so its top is at 0.8), or just
-	# above a node sprite. The image height used to be overwritten here.
+	# above a node sprite.
 	tag.position.y = 1.0 if is_image else 0.7
 	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	tag.alpha_cut = Label3D.ALPHA_CUT_DISCARD  # opaque pass = real occlusion

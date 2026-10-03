@@ -21,7 +21,7 @@ None of it is code. Two files, split along what belongs in version control:
 A finding that turns out wrong is an edit to a data file, not to how the
 tool works.
 
-Two settings that used to be one. `layer` is the chart the viewport
+Two separate settings. `layer` is the chart the viewport
 navigates in, a single layer or a band. `sampler_layers` is what an export has
 to carry. They coincide for a model that reads one layer, and not for one
 that reads several.
