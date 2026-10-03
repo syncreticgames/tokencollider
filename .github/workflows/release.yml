@@ -1,6 +1,11 @@
 # When a release is published on GitHub (tag v0.1.0, made in the web UI),
 # export the browser viewport with Godot, build the wheel with it inside, and
 # attach the wheel to that release.
+#
+# Two jobs, so the downloaded Godot binary never runs where a write token is
+# available: `build` runs everything with read-only access, and `publish`
+# only uploads the finished wheel. Actions are pinned to commits, with the
+# version they were taken from in a comment.
 name: release
 
 on:
@@ -8,16 +13,23 @@ on:
     types: [published]
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   GODOT_VERSION: "4.7.2"
+  # From Godot's own SHA512-SUMS.txt for 4.7.2-stable. Pinned here rather
+  # than fetched at build time, so a later swap of the release files fails
+  # the check instead of passing it.
+  GODOT_ZIP_SHA512: "9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65"
+  GODOT_TEMPLATES_SHA512: "ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079"
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Tag matches the package version
         run: |
@@ -27,22 +39,26 @@ jobs:
 
       - name: Cache Godot and its web export templates
         id: godot-cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: |
             ~/godot
             ~/.local/share/godot/export_templates
-          key: godot-${{ env.GODOT_VERSION }}-web
+          # The checksum is in the key, so a cache from unverified files can't
+          # be picked up after the pinned sums change.
+          key: godot-${{ env.GODOT_VERSION }}-web-${{ env.GODOT_ZIP_SHA512 }}
 
       - name: Install Godot and its web export templates
         if: steps.godot-cache.outputs.cache-hit != 'true'
         run: |
           base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
-          mkdir -p ~/godot
           curl -fsSL -o /tmp/godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-          unzip -q -o /tmp/godot.zip -d ~/godot
-          # The full template archive is over a gigabyte; keep only the web ones.
+          # The full template archive is over a gigabyte; only the web ones are kept.
           curl -fsSL -o /tmp/templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          echo "$GODOT_ZIP_SHA512  /tmp/godot.zip" | sha512sum -c -
+          echo "$GODOT_TEMPLATES_SHA512  /tmp/templates.tpz" | sha512sum -c -
+          mkdir -p ~/godot
+          unzip -q -o /tmp/godot.zip -d ~/godot
           dest=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
           mkdir -p "$dest"
           unzip -q -j /tmp/templates.tpz 'templates/web*' 'templates/version.txt' -d "$dest"
@@ -53,7 +69,9 @@ jobs:
       - name: Run the viewport's own tests
         run: ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path frontend --script tests/run_tests.gd
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+        with:
+          version: "0.12.21"
 
       - name: Build the wheel
         run: |
@@ -63,7 +81,27 @@ jobs:
           unzip -l dist/*.whl | grep -q 'dist-info/licenses/LICENSE' || {
             echo "the wheel is missing LICENSE"; exit 1; }
 
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: wheel
+          path: dist/*.whl
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: wheel
+          path: dist
+
       - name: Attach the wheel to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" dist/*.whl
+          REPO: ${{ github.repository }}
+        # --clobber, so re-running a failed release replaces the asset
+        # instead of failing on it.
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.whl --clobber --repo "$REPO"
