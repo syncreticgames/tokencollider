@@ -465,6 +465,40 @@ def parse_layer(val):
     return lo if lo == hi else (lo, hi)
 
 
+# Socket idle limit per connection, and how many connections are served at
+# once. A local client needs a handful; anything past the cap is closed at
+# once rather than given a thread, so nothing that can reach the port can
+# make the server spawn threads without bound.
+REQUEST_TIMEOUT = 60
+MAX_CONNECTIONS = 32
+
+
+class SidecarServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer with a cap on concurrent connections."""
+
+    daemon_threads = True
+
+    def __init__(self, address, handler, max_connections: int = MAX_CONNECTIONS):
+        self._slots = threading.BoundedSemaphore(max_connections)
+        super().__init__(address, handler)
+
+    def process_request(self, request, client_address):
+        if not self._slots.acquire(blocking=False):
+            self.shutdown_request(request)  # over the cap: close, no thread
+            return
+        try:
+            super().process_request(request, client_address)
+        except Exception:
+            self._slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._slots.release()
+
+
 def web_build_available() -> bool:
     return (WEB_DIR / "index.html").is_file()
 
@@ -483,7 +517,9 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
     # Static files are served by exact name from a listing taken now, so a
     # request path never touches the filesystem.
     web_dir = WEB_DIR if web_dir is None else web_dir
-    web_files = {f.name: f for f in web_dir.iterdir()
+    # Read once, here: the engine file is tens of MB, and re-reading it from
+    # disk on every request was work any page could make the server repeat.
+    web_files = {f.name: (f.read_bytes(), WEB_TYPES[f.suffix]) for f in web_dir.iterdir()
                  if f.is_file() and f.suffix in WEB_TYPES} if web_dir.is_dir() else {}
 
     def layout_payload(layer, axes: str = "local") -> dict:
@@ -540,6 +576,12 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
         return keys
 
     class Handler(BaseHTTPRequestHandler):
+        # Seconds a connection may sit without sending or taking data. A
+        # stalled body or an idle keep-alive connection used to hold its
+        # thread forever. Only socket reads and writes count: a long embed
+        # or cook between them doesn't.
+        timeout = REQUEST_TIMEOUT
+
         def _send(self, code: int, payload: dict) -> None:
             body = json.dumps(payload).encode("utf-8")
             self.send_response(code)
@@ -642,8 +684,7 @@ def make_handler(stack: LayerStack, layer_bounds: tuple[int | None, int | None] 
             if name in web_files:
                 # The page holds no secret; the token arrives in its URL
                 # fragment, which the browser never sends to a server.
-                self._send_bytes(200, web_files[name].read_bytes(),
-                                 WEB_TYPES[web_files[name].suffix])
+                self._send_bytes(200, *web_files[name])
                 return
             if url.path == "/":
                 self._send(404, {"error": "no web build; run tools/export_web.sh"})
@@ -950,7 +991,7 @@ def serve(stack: LayerStack, port: int = 8765, export_root: Path | None = None,
     # a hand-started `serve`; otherwise every session gets a fresh one.
     token = os.environ.get("TOKENCOLLIDER_TOKEN") or secrets.token_urlsafe(32)
     try:
-        server = ThreadingHTTPServer(("127.0.0.1", port),
+        server = SidecarServer(("127.0.0.1", port),
                                      make_handler(stack, layer_bounds, export_root,
                                                   token=token))
     except OSError as e:

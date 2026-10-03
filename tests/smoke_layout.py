@@ -877,6 +877,50 @@ def test_degenerate_inputs():
     print("ok: empty phrases refused, flat universes and one-row corpora handled")
 
 
+def test_server_bounds_idle_and_concurrent_connections():
+    """Connections that never send, or too many at once, can't tie up the
+    sidecar: idle ones are closed after the socket timeout, and past the cap a
+    connection is closed straight away instead of getting a thread."""
+    import socket
+    import time as _time
+    from tokencollider.server import SidecarServer
+
+    stack = LayerStack(FakeEmbedder(dim=32))
+    stack.add_landmark("red")
+
+    class Quick(make_handler(stack, token=TOKEN)):
+        timeout = 1
+
+    server = SidecarServer(("127.0.0.1", 0), Quick, max_connections=2)
+    port = server.server_address[1]
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+
+    def closed_within(sock, seconds):
+        sock.settimeout(seconds)
+        try:
+            return sock.recv(1) == b""
+        except socket.timeout:
+            return False
+
+    try:
+        idle = [socket.create_connection(("127.0.0.1", port)) for _ in range(2)]
+        _time.sleep(0.2)
+        extra = socket.create_connection(("127.0.0.1", port))
+        assert closed_within(extra, 0.5), "a connection past the cap got a thread"
+        extra.close()
+        assert all(closed_within(s, 3) for s in idle), "idle connections never closed"
+        for s in idle:
+            s.close()
+        _time.sleep(0.2)  # their slots come back as their threads finish
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/health", headers=AUTH)
+        with urllib.request.urlopen(req, timeout=5) as r:
+            assert r.status == 200
+    finally:
+        server.shutdown()
+        server.server_close()
+    print("ok: idle connections time out, and connections past the cap are closed")
+
+
 if __name__ == "__main__":
     test_reconstruct_roundtrip()
     test_layout_stability()
@@ -896,4 +940,5 @@ if __name__ == "__main__":
     test_viewport_launch_keeps_the_token_off_the_command_line()
     test_world_path_follows_only_universe_files()
     test_degenerate_inputs()
+    test_server_bounds_idle_and_concurrent_connections()
     print("all layout/server smoke tests passed")
