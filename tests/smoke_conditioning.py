@@ -496,7 +496,7 @@ def test_profiles_yaml():
             "  krea2-deep:\n"          # extends a profile defined later above
             "    extends: krea2-finetune\n"
             "    layer: 23\n"
-            "default: krea2-finetune\n")
+            "default: krea2-finetune\n", encoding="utf-8")
         os.environ["TOKENCOLLIDER_PROFILES"] = str(path)
         try:
             finetune = profiles.get("krea2-finetune")
@@ -525,7 +525,7 @@ def test_profiles_yaml():
                 ("profiles: {krea2: {typo: 1}}", "unknown field"),
                 ("profiles: {krea2: {}}\ndefault: nope", "not defined"),
             ):
-                path.write_text(bad)
+                path.write_text(bad, encoding="utf-8")
                 try:
                     profiles.load(path)
                     raise AssertionError(f"expected a refusal: {bad}")
@@ -643,7 +643,7 @@ def test_profiles_are_data():
 
     from tokencollider import profiles
 
-    assert "def " not in profiles.BUILTIN_FILE.read_text()
+    assert "def " not in profiles.BUILTIN_FILE.read_text(encoding="utf-8")
     assert set(profiles.builtins()) >= {"zimage", "krea2"}
     with tempfile.TemporaryDirectory() as d:
         path = Path(d) / "profiles.yaml"
@@ -653,7 +653,7 @@ def test_profiles_are_data():
             "    template: \"<s>{}</s>\"\n"
             "    sampler_layers: [10, 20]\n"
             "    layer: 20\n"
-            "    config_dir: /cfg\n")
+            "    config_dir: /cfg\n", encoding="utf-8")
         reg = profiles.load(path)
         other = reg["other"]
         assert (other.template, other.sampler_layers, other.env_prefix) == \

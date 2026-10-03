@@ -256,7 +256,7 @@ class Embedder:
         index = path / "model.safetensors.index.json"
         if index.exists():
             names = sorted(set(
-                json.loads(index.read_text()).get("weight_map", {}).values()))
+                json.loads(index.read_text(encoding="utf-8")).get("weight_map", {}).values()))
             shards = [path / name for name in names]
             missing = [str(s) for s in shards if not s.exists()]
             if missing:
@@ -1387,7 +1387,7 @@ class FakeEmbedder:
 
 def load_universe_file(path: Path) -> list[str]:
     phrases = []
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if line and not line.startswith("#"):
             phrases.append(line)

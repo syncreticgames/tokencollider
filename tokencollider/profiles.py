@@ -139,7 +139,7 @@ def _overlay(registry: dict, path: Path, origin: str):
     import yaml
 
     try:
-        doc = yaml.safe_load(path.read_text()) or {}
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as e:
         raise SystemExit(f"[tokencollider] cannot parse {path}: {e}")
     if not isinstance(doc, dict):

@@ -187,7 +187,7 @@ def test_provenance_roundtrip():
         assert stripped["parent"] == {"fingerprint": "abc", "path": "/x"}
         # Headerless legacy files verify as a no-op.
         legacy = Path(d) / "legacy.txt"
-        legacy.write_text("Mario\nLuigi\n")
+        legacy.write_text("Mario\nLuigi\n", encoding="utf-8")
         p2, m2 = provenance.read_universe(legacy)
         assert p2 == ["Mario", "Luigi"] and m2 is None
         provenance.verify_universe(legacy, p2, m2, other)
@@ -214,7 +214,7 @@ def test_bridge_cache():
         for name, caption in (("one.png", "a red door"), ("two.jpg", None)):
             (dataset / name).write_bytes(b"fake")
             if caption:
-                (dataset / name).with_suffix(".txt").write_text(caption)
+                (dataset / name).with_suffix(".txt").write_text(caption, encoding="utf-8")
         fake = FakeEmbedder(dim=64)
         anchor_path = Path(d) / "anchor.safetensors"
         anchor = np.random.default_rng(0).standard_normal((1, 5, 64)).astype(np.float32)
@@ -308,7 +308,7 @@ def test_bridge_cache():
             spec = importlib.util.spec_from_file_location(
                 "jt", Path(__file__).resolve().parent.parent
                 / "trainers" / "tokencollider_jumpstart" / "JumpstartTrainer.py")
-            src = Path(spec.origin).read_text()
+            src = Path(spec.origin).read_text(encoding="utf-8")
             # The module imports ai-toolkit; exercise the path helper alone.
             ns = {}
             head = "\n".join(l for l in src.split("def trainer_base")[0].splitlines()
@@ -340,7 +340,7 @@ def test_bridge_dropout_pair():
         from PIL import Image
         for name in ("a", "b"):
             Image.new("RGB", (8, 8)).save(root / f"{name}.png")
-            (root / f"{name}.txt").write_text(f"a photo of {name}")
+            (root / f"{name}.txt").write_text(f"a photo of {name}", encoding="utf-8")
         anchor = root / "anchor.safetensors"
         Conditioning.single(np.zeros((4, 32), np.float32),
                             emb.n_layers - 1).save(str(anchor), framework="np")
@@ -386,7 +386,7 @@ def test_bridge_alternate_anchors():
     with tempfile.TemporaryDirectory() as d:
         root = Path(d)
         Image.new("RGB", (8, 8)).save(root / "a.png")
-        (root / "a.txt").write_text("a photo")
+        (root / "a.txt").write_text("a photo", encoding="utf-8")
         anchors = []
         for i in range(3):
             a = root / f"anchor{i}.safetensors"
@@ -399,7 +399,7 @@ def test_bridge_alternate_anchors():
         stem = str(cache / f"a_{bridge.cache_hash('a photo', 'zimage')}")
         # The trainer globs for this exact shape; keep the two in step.
         src = (Path(__file__).resolve().parent.parent / "trainers" /
-               "tokencollider_jumpstart" / "JumpstartTrainer.py").read_text()
+               "tokencollider_jumpstart" / "JumpstartTrainer.py").read_text(encoding="utf-8")
         pattern = re.search(r'root \+ "(\.anchor\.[^"]+)"', src).group(1)
         found = sorted(_glob.glob(stem + pattern))
         assert len(found) == 3, (pattern, found, sorted(p.name for p in cache.iterdir()))

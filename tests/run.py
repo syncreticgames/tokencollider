@@ -45,10 +45,10 @@ def orphan_tests() -> list[str]:
     orphans = []
     for name in SUITE:
         path = Path(__file__).parent / name
-        tree = ast.parse(path.read_text())
+        tree = ast.parse(path.read_text(encoding="utf-8"))
         defined = {n.name for n in tree.body
                    if isinstance(n, ast.FunctionDef) and n.name.startswith("test_")}
-        src = path.read_text()
+        src = path.read_text(encoding="utf-8")
         if "globals().items()" in src:      # auto-dispatch, cannot orphan
             continue
         called = {n.func.id for n in ast.walk(tree)
@@ -56,6 +56,42 @@ def orphan_tests() -> list[str]:
         for missing in sorted(defined - called):
             orphans.append(f"{name}: {missing} is defined but never called")
     return orphans
+
+
+SOURCE_DIRS = ["tokencollider", "comfyui_node", "trainers", "tools", "tests"]
+
+
+def unencoded_text_io() -> list[str]:
+    """Text read or written without `encoding=`.
+
+    Python on Windows defaults to the locale's code page (cp1252), so a
+    universe with a CJK phrase or an emoji fails to save there, and a UTF-8
+    file made on Linux reads back as different phrases. Every
+    `read_text`/`write_text`, and every `open` not in binary mode, names
+    utf-8 explicitly.
+    """
+    out = []
+    for d in SOURCE_DIRS:
+        for path in sorted((ROOT / d).rglob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                if any(k.arg == "encoding" for k in node.keywords):
+                    continue
+                f = node.func
+                if isinstance(f, ast.Attribute) and f.attr in ("read_text", "write_text"):
+                    what = f.attr
+                elif isinstance(f, ast.Name) and f.id == "open":
+                    mode = node.args[1] if len(node.args) > 1 else next(
+                        (k.value for k in node.keywords if k.arg == "mode"), None)
+                    if isinstance(mode, ast.Constant) and "b" in str(mode.value):
+                        continue
+                    what = "open"
+                else:
+                    continue
+                out.append(f"{path.relative_to(ROOT)}:{node.lineno}: {what} without encoding=")
+    return out
 
 
 DOC_DIR = ROOT / "docs"
@@ -72,7 +108,7 @@ def duplicate_headings() -> list[str]:
     out = []
     for md in sorted(DOC_DIR.glob("*.md")):
         seen = {}
-        for line in md.read_text().splitlines():
+        for line in md.read_text(encoding="utf-8").splitlines():
             if line.startswith("## ") or line.startswith("### "):
                 seen[line] = seen.get(line, 0) + 1
         for head, n in seen.items():
@@ -199,7 +235,7 @@ def main() -> int:
 
     ok = True
     if not args.metrics_only:
-        orphans = orphan_tests() + duplicate_headings()
+        orphans = orphan_tests() + duplicate_headings() + unencoded_text_io()
         for line in orphans:
             print(f"ORPHAN {line}")
         ok, results = run_suite()
@@ -211,14 +247,14 @@ def main() -> int:
         ok = ok and not orphans
     now = metrics()
     if args.update:
-        BASELINE.write_text(json.dumps(now, indent=2, sort_keys=True) + "\n")
+        BASELINE.write_text(json.dumps(now, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"baseline written: {len(now)} metrics")
         return 0 if ok else 1
     if not BASELINE.exists():
         print("no baseline; run with --update")
         print(json.dumps(now, indent=2, sort_keys=True))
         return 0 if ok else 1
-    drift = compare(now, json.loads(BASELINE.read_text()))
+    drift = compare(now, json.loads(BASELINE.read_text(encoding="utf-8")))
     if drift:
         print("\n".join(drift))
         print("VERDICT: FAIL (metric drift)")

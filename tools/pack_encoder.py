@@ -56,7 +56,7 @@ def shard_files(path: Path) -> list[Path]:
         return [path]
     index = path / "model.safetensors.index.json"
     if index.exists():
-        names = sorted(set(json.loads(index.read_text()).get("weight_map", {}).values()))
+        names = sorted(set(json.loads(index.read_text(encoding="utf-8")).get("weight_map", {}).values()))
         shards = [path / n for n in names]
         missing = [str(s) for s in shards if not s.exists()]
         if missing:

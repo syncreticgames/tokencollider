@@ -69,7 +69,7 @@ def write_universe(path: Path, phrases: list[str], meta: dict, store=None) -> No
 
     header = HEADER_PREFIX + json.dumps(meta, ensure_ascii=False)
     lines = images.to_entries(phrases, store)
-    path.write_text(header + "\n" + "\n".join(lines) + "\n")
+    path.write_text(header + "\n" + "\n".join(lines) + "\n", encoding="utf-8")
 
 
 def read_universe(path: Path) -> tuple[list[str], dict | None]:
@@ -79,7 +79,7 @@ def read_universe(path: Path) -> tuple[list[str], dict | None]:
     tokencollider.images.resolve_entries turns into landmark keys."""
     phrases: list[str] = []
     meta: dict | None = None
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         prefix = next((p for p in (HEADER_PREFIX, LEGACY_HEADER_PREFIX)
                        if line.startswith(p)), None)

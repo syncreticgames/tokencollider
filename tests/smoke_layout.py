@@ -442,7 +442,7 @@ def test_http_server():
         thumb = r.read()
     assert thumb[:2] == b"\xff\xd8"  # a JPEG
     status, uni_i = call("POST", "/export_universe", {"name": "smoke_images"})
-    lines = Path(uni_i["path"]).read_text().splitlines()
+    lines = Path(uni_i["path"]).read_text(encoding="utf-8").splitlines()
     at_lines = [l for l in lines if l.startswith("@")]
     assert len(at_lines) == 2 and all(Path(l[1:]).exists() for l in at_lines), at_lines
     # ...and back: the same keys, by content, regardless of pooling spelling
@@ -579,9 +579,9 @@ def test_server_refuses_hostile_requests():
     for w in ("alpha", "beta", "gamma"):
         stack.add_landmark(w)
     web = Path(tempfile.mkdtemp())
-    (web / "index.html").write_text("<html>viewport</html>")
+    (web / "index.html").write_text("<html>viewport</html>", encoding="utf-8")
     (web / "index.wasm").write_bytes(b"\0asm")
-    (web / "notes.txt").write_text("not a web build type")
+    (web / "notes.txt").write_text("not a web build type", encoding="utf-8")
     server = ThreadingHTTPServer(("127.0.0.1", 0),
                                  make_handler(stack, token=TOKEN, web_dir=web))
     port = server.server_address[1]

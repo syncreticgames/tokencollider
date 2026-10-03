@@ -193,7 +193,7 @@ def test_shard_index_wins_over_globbing():
         save_file({"junk": torch.zeros(2, 2)}, str(m / "some_lora.safetensors"))
         (m / "model.safetensors.index.json").write_text(_json.dumps({"weight_map": {
             f"model.language_model.layers.{i}.mlp.up_proj.weight":
-            f"model-0000{i}-of-00002.safetensors" for i in (1, 2)}}))
+            f"model-0000{i}-of-00002.safetensors" for i in (1, 2)}}), encoding="utf-8")
 
         emb, store = make_embedder(m / "unused.safetensors")
         emb.model_name = str(m)
@@ -206,12 +206,12 @@ def test_shard_index_wins_over_globbing():
 
         # A self-contained HF directory is its own config source.
         assert emb.config_source() != str(m)  # no config.json yet
-        (m / "config.json").write_text('{"model_type": "qwen3_vl"}')
+        (m / "config.json").write_text('{"model_type": "qwen3_vl"}', encoding="utf-8")
         assert emb.config_source() == str(m)
 
         # An index naming a shard that is not there fails loudly.
         (m / "model.safetensors.index.json").write_text(_json.dumps(
-            {"weight_map": {"x": "model-00009-of-00002.safetensors"}}))
+            {"weight_map": {"x": "model-00009-of-00002.safetensors"}}), encoding="utf-8")
         try:
             emb.weight_files()
             raise AssertionError("expected a refusal on a missing shard")
@@ -346,7 +346,7 @@ def test_pack_encoder():
         b = dict(vision)
         save_file(a, str(full / "a.safetensors")); save_file(b, str(full / "b.safetensors"))
         (full / "model.safetensors.index.json").write_text(json.dumps(
-            {"weight_map": {**{k: "a.safetensors" for k in a}, **{k: "b.safetensors" for k in b}}}))
+            {"weight_map": {**{k: "a.safetensors" for k in a}, **{k: "b.safetensors" for k in b}}}), encoding="utf-8")
         res = packer.pack(full, d / "full.safetensors")
         with safe_open(str(d / "full.safetensors"), framework="pt") as f:
             keys = set(f.keys())

@@ -251,7 +251,7 @@ def write_cache(dataset: Path, embedder, anchors: list[Path], arch: str,
     written = []
     for img in images:
         caption_path = img.with_suffix(caption_ext)
-        caption = (caption_path.read_text().strip()
+        caption = (caption_path.read_text(encoding="utf-8").strip()
                    if caption_path.exists() else default_caption)
         caption = inject_trigger(caption, trigger)
         cap = embedder.conditioning(caption)
