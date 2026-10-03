@@ -8,7 +8,8 @@ None of it is code. Two files, split along what belongs in version control:
   template prefix, which band is worth charting. Findings about a model,
   the same for everyone.
 - `profiles.yaml` in TokenCollider's home: beside the repo in a checkout, the user
-  data folder when installed (see `paths.py`; gitignored; see `profiles.example.yaml`)
+  data folder when installed (see `paths.py`; gitignored; see `profiles.example.yaml`,
+  which `tokencollider profiles --init` copies into place)
   supplies where the files are on one machine, and may define new profiles,
   from scratch or by extending another:
 

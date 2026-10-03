@@ -8,7 +8,7 @@ exports/
 __pycache__/
 frontend/.godot/
 
-# Machine-local model paths (see profiles.example.yaml).
+# Machine-local model paths (see tokencollider/profiles.example.yaml).
 profiles.yaml
 
 # Editor and tool scratch.

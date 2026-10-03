@@ -10,6 +10,9 @@ profiles:
 
   zimage:
     model: /path/to/qwen_3_4b.safetensors
+    # Config and tokenizer come from the Hugging Face cache (Qwen/Qwen3-4B),
+    # offline. Without it there, point at a local copy instead:
+    #config_dir: /path/to/qwen3_4b_config
 
   krea2:
     model: /path/to/qwen3vl_4b_fp8_scaled.safetensors

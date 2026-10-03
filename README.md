@@ -59,9 +59,10 @@ tokencollider --fake
 ```
 
 `--fake` uses deterministic fake embeddings, so it runs with no GPU and no
-model. To use a real encoder, copy
-[`profiles.example.yaml`](profiles.example.yaml) to `profiles.yaml` in
-TokenCollider's home and point it at your model files.
+model. To use a real encoder, run `tokencollider profiles --init`, which
+writes an example `profiles.yaml` into TokenCollider's home (from
+[`profiles.example.yaml`](tokencollider/profiles.example.yaml)), and point it
+at your model files.
 
 TokenCollider's home holds the embedding cache, `profiles.yaml`, exports and
 saved universes. The cache and exports contain every phrase you embed, in

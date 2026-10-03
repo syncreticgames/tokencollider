@@ -479,7 +479,26 @@ def test_cli_parsing():
     a = parse_args(["forget", "the", "a", "--file", "stop.txt", "--dry-run"])
     assert (a.texts, a.file, a.dry_run) == (["the", "a"], "stop.txt", True)
     assert parse_args(["profiles"]).command == "profiles"
+    assert parse_args(["profiles", "--init"]).init is True
+    # A command's own options may come before it, too.
+    a = parse_args(["--port", "9000", "view"])
+    assert (a.command, a.port) == ("view", 9000)
+    a = parse_args(["-p", "krea2", "--fake", "serve"])
+    assert (a.command, a.profile, a.fake) == ("serve", "krea2", True)
+    # No command is view, even with -h; a bare -h is the top-level help.
+    import contextlib
+    import io
+    for argv, which in ((["--fake", "-h"], "usage: tokencollider view"),
+                        (["-h"], "usage: tokencollider [")):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.suppress(SystemExit):
+            parse_args(argv)
+        assert out.getvalue().startswith(which), (argv, out.getvalue()[:60])
     print("ok: cli parses the short forms, options either side of the command")
+
+    # The example profiles file ships inside the package, so a wheel can --init.
+    from tokencollider import profiles as _prof
+    assert (Path(_prof.__file__).parent / "profiles.example.yaml").exists()
 
 
 

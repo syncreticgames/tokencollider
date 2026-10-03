@@ -206,8 +206,18 @@ def cmd_bridge(args, embedder) -> None:
 
 
 def cmd_profiles(args, _embedder=None) -> None:
-    """What profiles exist, where they came from, and whether they are usable."""
+    """What profiles exist, where they came from, and whether they are usable.
+    With --init, first copy the example profiles.yaml into place (never over
+    an existing one), since an installed package has no repo to copy it from."""
     path = profiles.profiles_path()
+    if getattr(args, "init", False):
+        example = Path(profiles.__file__).resolve().parent / "profiles.example.yaml"
+        if path.exists():
+            print(f"[tokencollider] {path} already exists; left as it is")
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(example.read_text(encoding="utf-8"), encoding="utf-8")
+            print(f"[tokencollider] wrote {path}; set each profile's model path in it")
     registry = profiles.load()
     names = sorted(k for k in registry if not k.startswith("__"))
     print(f"[tokencollider] profiles file: {path}"
@@ -397,7 +407,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--force", action="store_true",
                    help="skip the dialect check")
 
-    command("profiles", "list profiles and what they resolve to")
+    p = command("profiles", "list profiles and what they resolve to")
+    p.add_argument("--init", action="store_true",
+                   help="first write an example profiles.yaml to fill in "
+                        "(never over an existing one)")
     return parser
 
 
@@ -474,9 +487,18 @@ COMMANDS = {"warm": cmd_warm, "rank": cmd_rank, "compare": cmd_compare,
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     # No command means `view`, with every option it was given: `tokencollider --fake`
-    # and `tokencollider -p krea2 universes/materials.txt` both open the viewport.
-    if not {"-h", "--help", "profiles", *COMMANDS} & set(argv):
-        argv = ["view", *argv]
+    # and `tokencollider -p krea2 universes/materials.txt` both open the viewport,
+    # and `tokencollider --fake -h` is view's help. Only a bare -h is the
+    # top-level help.
+    names = {"profiles", *COMMANDS}
+    first = next((i for i, a in enumerate(argv) if a in names), None)
+    if first is None:
+        if not argv or set(argv) - {"-h", "--help"}:
+            argv = ["view", *argv]
+    elif first > 0:
+        # Options before the command go after it, where the command's own
+        # options are known: `tokencollider --port 9000 view` works.
+        argv = [argv[first], *argv[:first], *argv[first + 1:]]
     return build_parser().parse_args(argv)
 
 
@@ -494,6 +516,13 @@ def main(argv: list[str] | None = None) -> None:
         if not args.web:
             args.godot = find_godot()
     if args.command in ("view", "serve") and args.fake:
+        ignored = [flag for flag, given in (
+            ("-p/--profile", args.profile is not None),
+            ("--layer", args.layer is not None),
+            ("--db", args.db != DEFAULT_DB)) if given]
+        if ignored:
+            print(f"[tokencollider] note: --fake uses no model or cache, so "
+                  f"{', '.join(ignored)} {'is' if len(ignored) == 1 else 'are'} ignored")
         cmd_serve(args, FakeEmbedder())
         return
     embedder = make_embedder(args)
