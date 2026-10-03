@@ -24,7 +24,7 @@ DESCRIPTOR = b'{"format": "float8_e4m3fn", "full_precision_matrix_mult": false}'
 
 
 def write_checkpoint(path, *, quantized=True, with_vision=False,
-                     orphan_scale=False):
+                     orphan_scale=False, lm_head=None):
     """A miniature of the real ComfyUI-style file: 'model.'-prefixed keys, a
     quantized matrix as weight + weight_scale + comfy_quant, and BF16 norms."""
     from safetensors.torch import save_file
@@ -46,6 +46,8 @@ def write_checkpoint(path, *, quantized=True, with_vision=False,
         truth = w.to(torch.bfloat16).to(torch.float32).numpy()
     if orphan_scale:
         tensors["model.layers.0.mlp.up_proj.weight_scale"] = torch.tensor(2.0)
+    if lm_head:  # an untied output head, as HF checkpoints of most LLMs carry
+        tensors[lm_head] = torch.zeros(32, 8, dtype=torch.bfloat16)
     if with_vision:
         tensors["model.visual.blocks.0.attn.qkv.weight"] = torch.zeros(
             4, 4, dtype=torch.bfloat16)
@@ -97,6 +99,22 @@ def test_unquantized_file_unchanged():
         assert np.array_equal(got, truth)
         store.close()
     print("ok: unquantized checkpoints load untouched")
+
+
+def test_untied_lm_head_is_dropped():
+    """The text tower has no output head, so an untied `lm_head.weight` (most
+    HF checkpoints that don't tie embeddings) must be skipped, not handed to
+    load_state_dict as an unexpected key."""
+    for key in ("lm_head.weight", "model.lm_head.weight"):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "h.safetensors"
+            write_checkpoint(path, quantized=False, lm_head=key)
+            emb, store = make_embedder(path)
+            state, _n_deq, n_skip = emb._read_state(torch.bfloat16)
+            assert not any("lm_head" in k for k in state), (key, sorted(state))
+            assert n_skip == 1, (key, n_skip)
+            store.close()
+    print("ok: an untied lm_head is skipped, in either spelling")
 
 
 def test_orphan_scale_is_loud():
@@ -398,6 +416,7 @@ if __name__ == "__main__":
     test_pack_encoder()
     test_dequantizes_and_strips_prefix()
     test_unquantized_file_unchanged()
+    test_untied_lm_head_is_dropped()
     test_orphan_scale_is_loud()
     test_skip_prefixes()
     test_vision_config_mismatch_guard()

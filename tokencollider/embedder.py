@@ -46,13 +46,18 @@ QUANT_SUFFIX = ".comfy_quant"
 BATCH_SIZE = int(os.environ.get("TOKENCOLLIDER_BATCH", "32"))
 
 
-def strip_tower_prefix(key: str) -> str:
-    """Text-tower key as the model class wants it, unprefixed.
+def strip_tower_prefix(key: str) -> str | None:
+    """Text-tower key as the model class wants it, unprefixed, or None for
+    the output head, which the text tower has no place for.
 
     ComfyUI-style encoder files flatten the text tower to 'model.layers...',
     while a stock HF VLM checkpoint nests it at 'model.language_model.layers...'.
     Both mean the same parameter, and the text model classes want neither
-    prefix, so strip whichever is present."""
+    prefix, so strip whichever is present. An HF checkpoint that doesn't tie
+    its embeddings carries `lm_head.weight`; kept, it would fail the strict
+    load as an unexpected key."""
+    if key.startswith("lm_head") or key.startswith("model.lm_head"):
+        return None
     for prefix in ("model.language_model.", "language_model.", "model."):
         if key.startswith(prefix):
             return key[len(prefix):]
