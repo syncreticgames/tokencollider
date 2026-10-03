@@ -5,6 +5,10 @@ version = "1.0.0"
 license = "MIT"
 dependencies = ["safetensors"]
 
+[project.urls]
+Repository = "https://github.com/syncreticgames/tokencollider"
+Documentation = "https://github.com/syncreticgames/tokencollider/tree/main/comfyui_node"
+
 [tool.comfy]
 PublisherId = ""
 DisplayName = "TokenCollider"

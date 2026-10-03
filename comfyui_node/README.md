@@ -24,6 +24,18 @@ model that combines layers differently needs its own fusion.
 Beyond the standard library it needs `safetensors` and `torch`, both of which
 ComfyUI already provides.
 
+## Install
+
+The nodes live in a folder of the TokenCollider repo, which ComfyUI-Manager
+can't install from, so install them by hand, the way ComfyUI's guide to
+[installing a custom node manually](https://docs.comfy.org/installation/install_custom_node)
+describes:
+
+1. Copy or symlink this `comfyui_node` folder into `ComfyUI/custom_nodes/`,
+   for example as `ComfyUI/custom_nodes/comfyui-tokencollider`. A symlink
+   keeps it up to date with the repo.
+2. Restart ComfyUI. The nodes appear under the `tokencollider` category.
+
 ## Licence
 
 MIT, Copyright (c) 2026 Syncretic Games LLC. This package imports no ComfyUI

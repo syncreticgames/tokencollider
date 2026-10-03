@@ -107,14 +107,18 @@ profile:
 Integrations, each written for particular models or tools:
 
 - `comfyui_node/`: [ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes
-  that load exported conditionings. A single-layer export loads as is. A
+  that load exported conditionings. Install steps are in its
+  [README](comfyui_node/README.md). A single-layer export loads as is. A
   multi-layer stack is fused the way ComfyUI's Krea 2 encoder fuses it, the
   only multi-layer layout the node knows.
 - `tokencollider bridge` (`tokencollider/bridge.py`) and `trainers/`: pre-write
   [ai-toolkit](https://github.com/ostris/ai-toolkit)'s text-embedding cache
   and distil an export into a LoRA. They write ai-toolkit's `zimage` and
   `krea2` cache formats, so they work for profiles that declare one of those
-  as their `trainer_arch`.
+  as their `trainer_arch`. To install the trainer, copy or symlink
+  `trainers/tokencollider_jumpstart` into ai-toolkit's `extensions/` folder,
+  which ai-toolkit scans for extensions at startup, then start from
+  `trainers/jumpstart.example.yaml`.
 - `tools/pack_encoder.py`: packs a sharded Qwen3-VL-4B into the single-file
   layout ComfyUI's Krea 2 loader reads.
 
