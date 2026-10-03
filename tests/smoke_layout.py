@@ -457,7 +457,11 @@ def test_http_server():
     status, uni_i = call("POST", "/export_universe", {"name": "smoke_images"})
     lines = Path(uni_i["path"]).read_text(encoding="utf-8").splitlines()
     at_lines = [l for l in lines if l.startswith("@")]
-    assert len(at_lines) == 2 and all(Path(l[1:]).exists() for l in at_lines), at_lines
+    # Relative to the file's folder: no absolute path (and so no home folder
+    # or user name) in a file that may be shared.
+    here = Path(uni_i["path"]).parent
+    assert len(at_lines) == 2 and all(
+        not Path(l[1:]).is_absolute() and (here / l[1:]).exists() for l in at_lines), at_lines
     # ...and back: the same keys, by content, regardless of pooling spelling
     keys = imgs.resolve_entries(at_lines, Path(uni_i["path"]).parent, None)
     assert set(keys) == {pics["sunset"]["text"], pics["sea"]["text"]}
@@ -811,6 +815,41 @@ def test_viewport_launch_keeps_the_token_off_the_command_line():
     print("ok: the browser is handed a private redirect file, not the token")
 
 
+def test_world_path_follows_only_universe_files():
+    """A universe header names its parent and world by path, and a shared
+    file could name anything. Only a file that is itself a universe is
+    followed; relative paths resolve against the naming file's folder."""
+    from tokencollider import provenance as prov
+
+    with tempfile.TemporaryDirectory() as d:
+        d = Path(d)
+        atlas = d / "atlas.txt"
+        prov.write_universe(atlas, ["red", "blue", "green"],
+                            prov.build_meta(FakeEmbedder(dim=32), ["red", "blue", "green"]))
+        secret = d / "secret.txt"
+        secret.write_text("hunter2\nmy private notes\n", encoding="utf-8")
+        key = d / "id_ed25519"
+        key.write_text("-----BEGIN OPENSSH PRIVATE KEY-----\n", encoding="utf-8")
+        assert prov.is_universe_file(atlas)
+        assert not prov.is_universe_file(secret) and not prov.is_universe_file(key)
+
+        child = d / "sub" / "child.txt"
+        child.parent.mkdir()
+        assert prov.relative_to_file(atlas, child) == "../atlas.txt"
+
+        def world_of(path_in_header):
+            stack = LayerStack(FakeEmbedder(dim=32))
+            stack.source_path = str(child)
+            stack.provenance = {"world": {"path": path_in_header}}
+            return stack.world_path()
+
+        assert world_of("../atlas.txt") == str(child.parent / "../atlas.txt")
+        assert world_of(str(atlas)) == str(atlas)
+        for hostile in (str(secret), "../secret.txt", str(key), "/dev/zero", "/etc/passwd"):
+            assert world_of(hostile) is None, hostile
+    print("ok: header paths follow only universe files, relative to the naming file")
+
+
 if __name__ == "__main__":
     test_reconstruct_roundtrip()
     test_layout_stability()
@@ -828,4 +867,5 @@ if __name__ == "__main__":
     test_density_caches_keep_one_corpus_per_layer()
     test_server_serialises_concurrent_requests()
     test_viewport_launch_keeps_the_token_off_the_command_line()
+    test_world_path_follows_only_universe_files()
     print("all layout/server smoke tests passed")

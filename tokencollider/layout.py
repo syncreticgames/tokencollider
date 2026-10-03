@@ -728,11 +728,22 @@ class LayerStack:
         immediate `parent.path`)."""
         if self.world is not None and self.world.source_path:
             return self.world.source_path
+        from .provenance import is_universe_file
+
+        # Header paths are relative to the file that names them. Only a file
+        # that is itself a universe is followed: a shared header could name
+        # anything on disk, and this file's phrases get embedded and cached.
+        base = Path(self.source_path).parent if self.source_path else Path.cwd()
         meta = self.provenance or {}
         for key in ("world", "parent"):
-            path = (meta.get(key) or {}).get("path")
-            if path and Path(path).exists():
-                return path
+            raw = (meta.get(key) or {}).get("path")
+            if not raw:
+                continue
+            path = Path(raw).expanduser()
+            if not path.is_absolute():
+                path = base / path
+            if is_universe_file(path):
+                return str(path)
         return None
 
     def has_world(self) -> bool:

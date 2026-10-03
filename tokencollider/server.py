@@ -385,8 +385,11 @@ def colonize(stack: LayerStack, layer, coords, name: str | None,
             "axes": "world" if basis is not None else "local",
         },
     }
+    # Header paths are relative to the new file's folder (every save lands
+    # in UNIVERSE_DIR), so a shared file doesn't carry the user's home path.
+    here = UNIVERSE_DIR / "_.txt"
     if stack.source_path:
-        extra["parent"]["path"] = stack.source_path
+        extra["parent"]["path"] = provenance.relative_to_file(stack.source_path, here)
     if stack.provenance and "fingerprint" in stack.provenance:
         extra["parent"]["origin_universe"] = stack.provenance["fingerprint"]
     # The world is the atlas at the top of the chain, which is the parent
@@ -398,7 +401,7 @@ def colonize(stack: LayerStack, layer, coords, name: str | None,
                                               **parent_config),
     }
     if world.source_path:
-        extra["world"]["path"] = world.source_path
+        extra["world"]["path"] = provenance.relative_to_file(world.source_path, here)
     origin = {p: "preload" for p in natives} | {p: "manual" for p in manual}
     result = None
     if load:

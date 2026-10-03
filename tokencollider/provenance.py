@@ -16,6 +16,7 @@ and still load.
 
 import hashlib
 import json
+import os
 import time
 from pathlib import Path
 
@@ -62,13 +63,44 @@ def build_meta(embedder, phrases: list[str], extra: dict | None = None) -> dict:
     return meta
 
 
+def relative_to_file(target, universe_file: Path) -> str:
+    """`target` as a path relative to the universe file's folder, which is
+    how universe files name other files: it keeps the absolute path (and
+    with it the user's name) out of a file that may be shared, and
+    resolve_entries / world_path read it back against the same folder.
+    Absolute only when no relative path exists (another drive on Windows)."""
+    try:
+        return os.path.relpath(Path(target).resolve(), Path(universe_file).resolve().parent)
+    except ValueError:
+        return str(target)
+
+
+def is_universe_file(path: Path, scan_bytes: int = 1 << 16) -> bool:
+    """Whether `path` is a TokenCollider universe: a regular .txt file with a
+    `#tokencollider` header near the top. A universe header names other
+    files (its parent, its world), and a shared file could name anything;
+    this keeps the tool from loading, embedding and caching a file that was
+    never a universe (a key, a password file, /dev/zero). Reads at most
+    `scan_bytes`."""
+    try:
+        if path.suffix != ".txt" or not path.is_file():
+            return False
+        with open(path, "rb") as f:
+            head = f.read(scan_bytes).decode("utf-8", errors="ignore")
+    except OSError:
+        return False
+    return any(line.strip().startswith((HEADER_PREFIX, LEGACY_HEADER_PREFIX))
+               for line in head.splitlines())
+
+
 def write_universe(path: Path, phrases: list[str], meta: dict, store=None) -> None:
     """Phrases one per line; image landmarks as `@path` lines (see
-    tokencollider.images), resolved back through the store."""
+    tokencollider.images), resolved back through the store, with paths
+    relative to this file's folder."""
     from . import images
 
     header = HEADER_PREFIX + json.dumps(meta, ensure_ascii=False)
-    lines = images.to_entries(phrases, store)
+    lines = images.to_entries(phrases, store, relative_to=path)
     path.write_text(header + "\n" + "\n".join(lines) + "\n", encoding="utf-8")
 
 

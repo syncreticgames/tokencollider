@@ -166,13 +166,20 @@ def resolve_entries(entries: list[str], base_dir: Path, store,
     return out
 
 
-def to_entries(keys: list[str], store) -> list[str]:
-    """Landmark keys back to universe-file lines."""
+def to_entries(keys: list[str], store, relative_to=None) -> list[str]:
+    """Landmark keys back to universe-file lines. With `relative_to` (the
+    universe file being written), image paths are written relative to its
+    folder, the way resolve_entries reads them back."""
+    from .provenance import relative_to_file
+
     out = []
     for k in keys:
         if is_image_key(k):
             hit = lookup(store, key_sha(k))
-            out.append("@" + (hit[0] if hit else k))
+            if hit and relative_to is not None:
+                out.append("@" + relative_to_file(hit[0], relative_to))
+            else:
+                out.append("@" + (hit[0] if hit else k))
         else:
             out.append(k)
     return out
