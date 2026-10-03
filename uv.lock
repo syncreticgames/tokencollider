@@ -804,7 +804,7 @@ requires-dist = [
     { name = "pyyaml" },
     { name = "safetensors" },
     { name = "torch" },
-    { name = "transformers" },
+    { name = "transformers", specifier = ">=5" },
 ]
 
 [[package]]
