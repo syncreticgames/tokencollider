@@ -33,6 +33,21 @@ func test_menu_emits_navigation_not_action() -> void:
 		harness.ok(inst.has_signal(sig), "menu emits %s" % sig)
 	inst.free()
 
+func test_menu_has_no_quit_in_a_browser() -> void:
+	## Quitting a web export leaves a dead page; the tab is the way out.
+	var desktop = load("res://ui/MainMenu.tscn").instantiate()
+	desktop.can_quit = true
+	desktop._ready()
+	harness.ok(desktop.get_node("Margin/Rows/Quit").visible, "desktop shows Quit")
+	desktop.free()
+	var web = load("res://ui/MainMenu.tscn").instantiate()
+	web.can_quit = false
+	web._ready()
+	harness.ok(not web.get_node("Margin/Rows/Quit").visible, "browser hides Quit")
+	web.free()
+	harness.ok(preload("res://Main.gd").KEY_HELP.contains("  Ctrl+Q: quit"),
+		"the help's quit hint is the exact text the browser build removes")
+
 func test_credits_include_the_engine_notice() -> void:
 	## Godot is MIT and an export embeds it, so the notice has to be reachable
 	## from the build. If this ever returns nothing, the obligation is unmet.

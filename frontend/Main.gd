@@ -93,7 +93,9 @@ func _ready() -> void:
 	menu = preload("res://ui/MenuOverlay.gd").new()
 	menu.name = "MenuOverlay"
 	menu.settings = settings
-	menu.quit_requested.connect(func(): get_tree().quit())
+	menu.quit_requested.connect(func():
+		if not OS.has_feature("web"):  # the button is hidden there anyway
+			get_tree().quit())
 	# The viewport takes its mouse back when the menu closes; the menu never
 	# reaches in to do that itself.
 	menu.resumed.connect(func(): status_label.text = "resumed")
@@ -144,7 +146,7 @@ func _ready() -> void:
 	# small enough that this fits with room to spare.
 	info.add_theme_font_size_override("normal_font_size", 13)
 	info.add_theme_font_size_override("bold_font_size", 13)
-	info.text = KEY_HELP
+	info.text = KEY_HELP.replace("  Ctrl+Q: quit", "") if OS.has_feature("web") else KEY_HELP
 	_refresh()
 
 # --- sidecar API ---------------------------------------------------------
@@ -625,6 +627,9 @@ func _shortcut_input(event: InputEvent) -> void:
 	# Quit lives here, not in _unhandled_input: shortcuts are dispatched
 	# before the focused control eats the key, so Ctrl+Q works mid-word too.
 	# `tokencollider view` takes the sidecar down when the viewport closes.
+	# Not in a browser: quitting there leaves a dead page (close the tab).
+	if OS.has_feature("web"):
+		return
 	if event is InputEventKey and event.pressed and not event.echo \
 			and event.keycode == KEY_Q and event.ctrl_pressed:
 		get_viewport().set_input_as_handled()

@@ -10,8 +10,13 @@ signal settings_requested
 signal credits_requested
 signal quit_requested
 
+## In a browser, quitting stops the engine and leaves a dead page, and closing
+## the tab is how anyone leaves a web page anyway. So there is no Quit there.
+var can_quit := not OS.has_feature("web")
+
 
 func _ready() -> void:
+	$Margin/Rows/Quit.visible = can_quit
 	$Margin/Rows/Explore.pressed.connect(func(): explore_requested.emit())
 	$Margin/Rows/Settings.pressed.connect(func(): settings_requested.emit())
 	$Margin/Rows/Credits.pressed.connect(func(): credits_requested.emit())
