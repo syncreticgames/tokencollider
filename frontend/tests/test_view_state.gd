@@ -60,3 +60,27 @@ func test_roundtrip_and_forward_compatible_restore() -> void:
 	partial.from_dict({"layer_hi": 30})
 	harness.eq(partial.layer_hi, 30, "present key applied")
 	harness.eq(partial.layer_lo, 5, "absent key keeps current value")
+
+func test_matches_layout_rejects_replies_for_another_view() -> void:
+	## Out-of-order replies: only the one for the view on screen applies.
+	var single = _at(30, 30)
+	harness.ok(single.matches_layout({"layer": 30, "axes": "local"}), "same layer applies")
+	harness.ok(single.matches_layout({"layer": 30.0, "axes": "local"}), "JSON floats compare as ints")
+	harness.ok(not single.matches_layout({"layer": 20, "axes": "local"}), "older layer is stale")
+	harness.ok(not single.matches_layout({"layer": [20, 30], "axes": "local"}), "band reply for a single view is stale")
+	harness.ok(not single.matches_layout({"axes": "local"}), "reply without a layer is stale once the layer is known")
+	var band = _at(8, 20)
+	harness.ok(band.matches_layout({"layer": [8, 20], "axes": "local"}), "same band applies")
+	harness.ok(not band.matches_layout({"layer": [8, 21], "axes": "local"}), "other band is stale")
+	harness.ok(not band.matches_layout({"layer": 20, "axes": "local"}), "single reply for a band view is stale")
+	harness.ok(ViewState.new().matches_layout({"layer": 36, "axes": "local"}), "cold view takes any reply")
+
+func test_matches_layout_axes() -> void:
+	var world = _at(20, 20, true)
+	harness.ok(world.matches_layout({"layer": 20, "axes": "world", "has_world": true}), "world reply for world view")
+	harness.ok(world.matches_layout({"layer": 20, "axes": "local", "has_world": false}),
+		"local reply with no atlas is the fallback, not stale")
+	harness.ok(not world.matches_layout({"layer": 20, "axes": "local", "has_world": true}),
+		"local reply while an atlas exists was sent before the switch")
+	harness.ok(not _at(20, 20, false).matches_layout({"layer": 20, "axes": "world", "has_world": true}),
+		"world reply for a local view is stale")

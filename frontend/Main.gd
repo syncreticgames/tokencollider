@@ -424,6 +424,19 @@ func _configure_slider(layout: Dictionary, view = null) -> void:
 # --- layout -> world -----------------------------------------------------
 
 func _apply_layout(layout: Dictionary) -> void:
+	# A reply for a view the user has since left (a slow embed landing after a
+	# fast scrub, say) is dropped, and the view on screen is fetched instead.
+	# The one exception is the reply that restores a saved session's view.
+	var restoring: bool = not view_restored and layout.get("view") != null
+	if not restoring and not view_state.matches_layout(layout):
+		stale_replies += 1
+		if stale_replies <= 3:
+			_refresh()
+			return
+		# The sidecar keeps answering a different view than asked. Take what
+		# it says rather than refetch forever.
+		push_warning("layout reply never matched the view; applying it anyway")
+	stale_replies = 0
 	var restored_view = null
 	if not view_restored and layout.get("view") != null:
 		# A saved session rides in the universe header: camera, band,
@@ -537,6 +550,7 @@ var trails: Node3D = null        # viewport/Constellations.gd
 var ghost_layer: Node3D = null   # viewport/Ghosts.gd
 var mass: Node3D = null          # viewport/MassView.gd
 var menu: CanvasLayer = null     # ui/MenuOverlay.gd, the front door
+var stale_replies := 0           # layout replies dropped in a row (see _apply_layout)
 
 # --- color axes ----------------------------------------------------------
 # The maths lives in lib/Oklab.gd, verified against tokencollider/oklab.py. The picker's

@@ -44,6 +44,30 @@ func axes_value() -> String:
 	return "world" if world_axes else "local"
 
 
+func matches_layout(layout: Dictionary) -> bool:
+	## Whether a layout reply describes the view on screen NOW. Replies can
+	## land out of order (a slow embed, then a fast scrub), and applying one
+	## for another view would put a world of the wrong layer under sliders
+	## that say otherwise, and a cursor read from it would export coordinates
+	## the user never selected. The reply's own "layer" and "axes" say what
+	## it is. Before the layer is known, any reply is the one to take.
+	if not is_ready():
+		return true
+	var served = layout.get("layer")
+	if served is Array:
+		if served.size() != 2 or int(served[0]) != layer_lo or int(served[1]) != layer_hi:
+			return false
+	elif served == null or layer_lo != layer_hi or int(served) != layer_hi:
+		return false
+	var axes := str(layout.get("axes", "local"))
+	if not world_axes:
+		return axes == "local"
+	# Asked for world and got local: when the reply says there is no atlas,
+	# that is the sidecar's fallback and the answer. When it says there is
+	# one, the reply was for a local request sent before the switch.
+	return axes == "world" or not bool(layout.get("has_world", false))
+
+
 func signature() -> String:
 	## The identity of the space on screen. Compare with `==`; never try to
 	## translate a position from one signature to another.
