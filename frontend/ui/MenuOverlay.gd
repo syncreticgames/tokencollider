@@ -13,6 +13,7 @@ extends CanvasLayer
 
 signal resumed        ## the user wants the viewport back
 signal quit_requested
+signal settings_applied  ## a setting changed that the live session should follow
 
 const MENU := preload("res://ui/MainMenu.tscn")
 const SETTINGS := preload("res://ui/SettingsPanel.tscn")
@@ -70,4 +71,6 @@ func _show(packed: PackedScene) -> void:
 		_screen.quit_requested.connect(func(): quit_requested.emit())
 	if _screen.has_signal("closed"):
 		_screen.closed.connect(func(): _show(MENU))
+	if _screen.has_signal("applied"):
+		_screen.applied.connect(func(): settings_applied.emit())
 	add_child(_screen)

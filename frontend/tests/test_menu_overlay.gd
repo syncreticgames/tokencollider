@@ -58,3 +58,16 @@ func test_key_help_lists_the_menu() -> void:
 	var help: String = preload("res://Main.gd").KEY_HELP
 	harness.ok(help.contains("M: menu"), "key help names the menu key")
 	harness.eq(help.count("\n"), 17, "key help keeps its line count")
+
+func test_settings_changes_reach_the_viewport() -> void:
+	## The Settings panel saved its toggles but nothing in the running app
+	## heard about it, so "normalized" did nothing. The overlay forwards it.
+	var o = MenuOverlay.new()
+	o._ready()
+	o.settings = Config.new()
+	var heard := [0]
+	o.settings_applied.connect(func(): heard[0] += 1)
+	o._show(MenuOverlay.SETTINGS)
+	o._screen.applied.emit()
+	harness.eq(heard[0], 1, "the overlay forwards the panel's applied signal")
+	o.free()

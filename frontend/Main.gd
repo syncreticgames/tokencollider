@@ -59,6 +59,9 @@ var view_state := preload("res://lib/ViewState.gd").new()  # layer band, axes, s
 func _ready() -> void:
 	settings = Config.new()
 	settings.load_settings()
+	# The saved depth mode is where a session starts; N still flips it live,
+	# and a restored session's own view wins over both.
+	view_state.normalized = bool(settings.get_value("view/normalized"))
 	sidecar = SidecarClient.new()
 	sidecar.name = "Sidecar"
 	factory = preload("res://viewport/LandmarkFactory.gd").new()
@@ -93,6 +96,7 @@ func _ready() -> void:
 	menu = preload("res://ui/MenuOverlay.gd").new()
 	menu.name = "MenuOverlay"
 	menu.settings = settings
+	menu.settings_applied.connect(_on_settings_applied)
 	menu.quit_requested.connect(func():
 		if not OS.has_feature("web"):  # the button is hidden there anyway
 			get_tree().quit())
@@ -339,6 +343,12 @@ func _step_layer(delta: int) -> void:
 	layer_slider.set_value_no_signal(view_state.layer_hi)
 	_update_layer_label()
 	_scrub()
+
+func _on_settings_applied() -> void:
+	## A change in the Settings panel reaches the running viewport, not only
+	## the next launch.
+	if bool(settings.get_value("view/normalized")) != view_state.normalized:
+		_toggle_normalized()
 
 func _toggle_normalized() -> void:
 	view_state.normalized = not view_state.normalized
