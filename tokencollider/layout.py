@@ -34,6 +34,12 @@ def knn_radius(block: np.ndarray, corpus: np.ndarray, k: int) -> np.ndarray:
     threshold, so it was counted as its own neighbour."""
     block = np.asarray(block, dtype=np.float64)
     corpus = np.asarray(corpus, dtype=np.float64)
+    if len(corpus) == 0:
+        return np.full(len(block), np.nan)
+    # A corpus smaller than k + 1 rows has no k-th neighbour past the point
+    # itself: partition only as deep as the corpus goes, and take the
+    # farthest there is rather than index out of range.
+    kth = min(int(k), len(corpus) - 1)
     d2 = (
         np.sum(block**2, axis=1)[:, None]
         - 2.0 * (block @ corpus.T)
@@ -42,8 +48,8 @@ def knn_radius(block: np.ndarray, corpus: np.ndarray, k: int) -> np.ndarray:
     d2 = np.maximum(d2, 0.0)
     out = np.empty(len(block))
     for row in range(len(block)):
-        d = np.sqrt(np.sort(np.partition(d2[row], k)[: k + 1]))
-        start = 1 if d[0] < 1e-4 else 0  # skip self when in corpus
+        d = np.sqrt(np.sort(np.partition(d2[row], kth)[: kth + 1]))
+        start = 1 if d[0] < 1e-4 and len(d) > 1 else 0  # skip self when in corpus
         out[row] = d[min(start + k - 1, len(d) - 1)]
     return out
 
@@ -908,6 +914,10 @@ class LayerStack:
         self.add_landmarks([text])
 
     def add_landmarks(self, texts: list[str], source: str = "manual") -> None:
+        if any(not str(t).strip() for t in texts):
+            # Nothing to embed: the encoder returns no phrase tokens, which
+            # used to surface as a confusing "layer out of range".
+            raise ValueError("an empty phrase has no tokens to embed")
         for t in texts:
             self.origin.setdefault(t, source)
         self.primary.add_landmarks(texts)

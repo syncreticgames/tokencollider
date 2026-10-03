@@ -850,6 +850,33 @@ def test_world_path_follows_only_universe_files():
     print("ok: header paths follow only universe files, relative to the naming file")
 
 
+def test_degenerate_inputs():
+    """Edge cases that used to crash or go NaN: an empty phrase, a universe
+    whose members are all the same vector, and a one-row corpus."""
+    from tokencollider.layout import knn_radius
+    from tokencollider.universe import Universe
+
+    stack = LayerStack(FakeEmbedder(dim=32))
+    for empty in ("", "   "):
+        try:
+            stack.add_landmarks(["red", empty])
+            raise AssertionError(f"empty phrase {empty!r} accepted")
+        except ValueError as e:
+            assert "empty" in str(e), e
+    assert stack.phrases == [], "a refused batch must add nothing"
+
+    same = np.ones((3, 8))
+    u = Universe.build(["a", "a ", "a  "], same)
+    assert np.all(np.isfinite(u.explained)), u.explained
+
+    one = np.zeros((1, 4))
+    r = knn_radius(one, one, 8)
+    assert r.shape == (1,) and np.isfinite(r[0]), r
+    two = np.array([[0.0, 0.0], [3.0, 4.0]])
+    assert np.allclose(knn_radius(two, two, 8), [5.0, 5.0])
+    print("ok: empty phrases refused, flat universes and one-row corpora handled")
+
+
 if __name__ == "__main__":
     test_reconstruct_roundtrip()
     test_layout_stability()
@@ -868,4 +895,5 @@ if __name__ == "__main__":
     test_server_serialises_concurrent_requests()
     test_viewport_launch_keeps_the_token_off_the_command_line()
     test_world_path_follows_only_universe_files()
+    test_degenerate_inputs()
     print("all layout/server smoke tests passed")

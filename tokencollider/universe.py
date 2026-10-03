@@ -38,7 +38,10 @@ class Universe:
         # SVD of centered members: rows of Vt are principal axes.
         _u, s, vt = np.linalg.svd(centered, full_matrices=False)
         var = s**2
-        frac = var / var.sum()
+        # Every member identical (one phrase repeated): no direction varies,
+        # and dividing by zero would make every fraction NaN.
+        total = var.sum()
+        frac = var / total if total > 0 else np.zeros_like(var)
         k = int(np.searchsorted(np.cumsum(frac), variance) + 1)
         k = min(k, len(phrases) - 1)
         components = vt[:k]
