@@ -196,11 +196,16 @@ class LoadConditioningStack:
         # `_cookNN.` in each filename either way).
         if os.path.isdir(pattern):
             pattern = os.path.join(pattern, "*_cook*.safetensors")
+        # Every name the exporter writes for a cook: `_cookNN`, then an
+        # optional `_mirror`, an optional 6-hex digest (added when the name
+        # was taken), and an optional `.mirror` (a named export's mirror).
+        # Mirrors are the negative half of a polarity pair and stay out.
+        cook = re.compile(
+            r"_cook(\d+)(_mirror)?(?:_[0-9a-f]{6})?(\.mirror)?\.safetensors$")
         out = []
         for path in glob.glob(pattern):
-            name = os.path.basename(path)
-            m = re.search(r"_cook(\d+)\.", name)
-            if m and not re.search(r"[._]mirror\.", name):
+            m = cook.search(os.path.basename(path))
+            if m and not (m.group(2) or m.group(3)):
                 out.append((int(m.group(1)), path))
         return sorted(out)  # ascending cook NN = deepest first
 

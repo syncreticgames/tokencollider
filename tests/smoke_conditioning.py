@@ -690,14 +690,18 @@ def test_comfy_stack_skips_mirrors():
     with tempfile.TemporaryDirectory() as d:
         root = Path(d) / "run_cook99.x"
         root.mkdir()
+        # A taken name gets a 6-hex digest appended (server.py), mirror or not.
         for name in ("a_cook08.safetensors", "a_cook20.safetensors",
+                     "a_cook14_3fa9c1.safetensors",
                      "a_cook08_mirror.safetensors", "a_cook08.mirror.safetensors",
+                     "a_cook14_mirror_3fa9c1.safetensors",
                      "notes.txt"):
             (root / name).write_bytes(b"")
         found = node.LoadConditioningStack._matches(str(root))
         assert [(n, Path(p).name) for n, p in found] == [
-            (8, "a_cook08.safetensors"), (20, "a_cook20.safetensors")], found
-    print("ok: comfy stack loader leaves mirrors out")
+            (8, "a_cook08.safetensors"), (14, "a_cook14_3fa9c1.safetensors"),
+            (20, "a_cook20.safetensors")], found
+    print("ok: comfy stack loader keeps renamed cooks and leaves mirrors out")
 
 
 if __name__ == "__main__":
