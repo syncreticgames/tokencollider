@@ -76,6 +76,7 @@ func make_image_sprite(url: String, size: float) -> MeshInstance3D:
 
 func load_image_texture(shape: MeshInstance3D, url: String) -> void:
 	var http := HTTPRequest.new()
+	http.timeout = 30.0  # a thumbnail; the picture just stays grey if it fails
 	add_child(http)
 	if http.request(base_url_provider.call() + url, headers_provider.call()) != OK:
 		http.queue_free()

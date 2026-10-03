@@ -55,3 +55,14 @@ func test_launch_from_page_url() -> void:
 	harness.eq(s.token, "a-b_c=", "token from fragment, decoded")
 	harness.eq(s.base_url(), "http://127.0.0.1:9123", "base url follows the page")
 	s.free()
+
+func test_every_request_has_a_timeout() -> void:
+	## A hung sidecar used to leave a request waiting forever, and with it the
+	## layer sliders (scrubbing never finished). Exports cook through the
+	## encoder and get longer; nothing waits forever.
+	harness.eq(Sidecar.timeout_for("/layout?layer=20"), Sidecar.TIMEOUT_DEFAULT, "layout")
+	harness.eq(Sidecar.timeout_for("/landmarks"), Sidecar.TIMEOUT_DEFAULT, "landmarks")
+	harness.eq(Sidecar.timeout_for("/export"), Sidecar.TIMEOUT_EXPORT, "export")
+	harness.eq(Sidecar.timeout_for("/export_universe"), Sidecar.TIMEOUT_EXPORT, "universe snapshot")
+	harness.ok(Sidecar.TIMEOUT_DEFAULT > 0.0 and Sidecar.TIMEOUT_EXPORT >= Sidecar.TIMEOUT_DEFAULT,
+		"finite, and exports at least as long")

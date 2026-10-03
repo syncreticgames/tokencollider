@@ -53,6 +53,18 @@ func apply_launch(env: Dictionary, page_url: String = "") -> void:
 	token = str(env.get("TOKENCOLLIDER_TOKEN", token))
 
 
+## How long a request may take before it counts as lost. Generous on
+## purpose: the first visit to a layer embeds every landmark there, and an
+## export cooks through the encoder (a full sweep, at every depth). The point
+## is that a hung sidecar no longer leaves the viewport waiting forever.
+const TIMEOUT_DEFAULT := 600.0
+const TIMEOUT_EXPORT := 3600.0
+
+
+static func timeout_for(path: String) -> float:
+	return TIMEOUT_EXPORT if path.begins_with("/export") else TIMEOUT_DEFAULT
+
+
 func request(path: String, body = null) -> Variant:
 	## GET when body is null, POST as JSON otherwise. Returns the parsed
 	## response, or null after emitting the reason.
@@ -61,6 +73,7 @@ func request(path: String, body = null) -> Variant:
 	## without it, which is what stops a web page from driving this API
 	## (see docs/security.md). Do not "simplify" it away.
 	var http := HTTPRequest.new()
+	http.timeout = timeout_for(path)
 	add_child(http)
 	var err: int
 	if body == null:
@@ -76,6 +89,9 @@ func request(path: String, body = null) -> Variant:
 		return null
 	var res: Array = await http.request_completed
 	http.queue_free()
+	if res[0] == HTTPRequest.RESULT_TIMEOUT:
+		request_failed.emit("no answer from the sidecar in %d s; it may be busy or stuck (see its terminal)" % int(timeout_for(path)))
+		return null
 	if res[0] != HTTPRequest.RESULT_SUCCESS:
 		unreachable.emit()
 		request_failed.emit("sidecar unreachable")
