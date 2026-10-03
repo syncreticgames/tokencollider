@@ -127,6 +127,17 @@ def cmd_forget(args, embedder) -> None:
     semantics)."""
     import re
 
+    if args.model:
+        if args.dry_run:
+            print(f"[tokencollider] dry run: every cached row for {embedder.model_name} "
+                  "would be forgotten")
+            return
+        e, c = embedder.store.forget_model(embedder.model_name)
+        print(f"[tokencollider] forgot model {embedder.model_name}: {e} embedding rows, "
+              f"{c} conditioning rows deleted")
+        if args.vacuum:
+            embedder.store.vacuum()
+        return
     texts = list(args.texts)
     if args.file:
         texts.extend(load_universe_file(Path(args.file)))
@@ -366,6 +377,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="list what would be deleted, delete nothing")
     p.add_argument("--vacuum", action="store_true",
                    help="reclaim space and scrub the deleted bytes")
+    p.add_argument("--model", action="store_true",
+                   help="every cached row for this profile's model (after swapping "
+                        "its weights)")
 
     p = command("bridge", "pre-write ai-toolkit's text-embedding cache")
     p.add_argument("dataset", help="image folder with caption files")
@@ -441,6 +455,9 @@ def make_embedder(args) -> Embedder:
         trim_template_prefix=profile.trim_template_prefix,
         image_pooling=image_pooling,
     )
+    # Not for `forget --model`, which is how a swapped model's cache is cleared.
+    if not (args.command == "forget" and getattr(args, "model", False)):
+        embedder.check_weights()
     describe(embedder, profile, {
         "model": resolved["MODEL"], "config": resolved["CONFIG_DIR"],
         "layer": resolved["LAYER"], "template": resolved["TEMPLATE"],

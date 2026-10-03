@@ -243,6 +243,44 @@ class Embedder:
         # cache probe.
         self.n_layers: int | None = None
 
+    def weights_identity(self) -> str:
+        """A fingerprint of the weight files' contents: each file's size and
+        a hash of three 64 KiB samples (start, middle, end). Cheap on
+        multi-gigabyte files, unlike hashing them whole, and unlike a
+        modification time it survives a plain copy. A finetune with the same
+        shapes still differs, since its values do."""
+        import hashlib
+
+        h = hashlib.sha256()
+        chunk = 1 << 16
+        for path in self.weight_files():
+            size = path.stat().st_size
+            h.update(f"{path.name}:{size}".encode())
+            with open(path, "rb") as f:
+                for offset in (0, max(0, size // 2 - chunk // 2), max(0, size - chunk)):
+                    f.seek(offset)
+                    h.update(f.read(chunk))
+        return h.hexdigest()
+
+    def check_weights(self) -> None:
+        """Refuse to serve this model's cache if the weights at its path are
+        not the ones that filled it. The cache names a model by path, so
+        swapping in another checkpoint would otherwise return the old one's
+        vectors. Records the weights the first time. Skipped when the weights
+        aren't on disk (a cache-only session)."""
+        if not Path(self.model_name).exists():
+            return
+        now = self.weights_identity()
+        recorded = self.store.weights_identity(self.model_name)
+        if recorded is None:
+            self.store.set_weights_identity(self.model_name, now)
+        elif recorded != now:
+            raise SystemExit(
+                f"[tokencollider] the weights at {self.model_name} are not the ones "
+                "this cache was filled with, so its cached vectors belong to another "
+                "model. Put the original weights back, or delete this model's cached "
+                "rows with `tokencollider forget --model` (same profile) and rerun.")
+
     def weight_files(self) -> list[Path]:
         """The safetensors holding the weights: a single ComfyUI-style file, or
         every shard in an HF-style directory.

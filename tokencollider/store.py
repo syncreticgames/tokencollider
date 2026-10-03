@@ -41,6 +41,15 @@ CREATE TABLE IF NOT EXISTS conditionings (
     data       BLOB NOT NULL,
     created_at REAL NOT NULL
 );
+
+-- Which weights filled this model's rows. The cache key names the model by
+-- path only, so a different checkpoint swapped in at the same path would
+-- otherwise be served the old one's vectors. See Embedder.check_weights.
+CREATE TABLE IF NOT EXISTS model_weights (
+    model       TEXT PRIMARY KEY,
+    identity    TEXT NOT NULL,
+    recorded_at REAL NOT NULL
+);
 """
 
 FORGET_CHUNK = 500
@@ -188,6 +197,29 @@ class EmbeddingStore:
                 c += self.conn.execute(
                     f"DELETE FROM conditionings WHERE model = ? AND text IN ({marks})",
                     (model, *chunk)).rowcount
+            self._commit()
+        return e, c
+
+    def weights_identity(self, model: str) -> str | None:
+        with self.lock:
+            row = self.conn.execute(
+                "SELECT identity FROM model_weights WHERE model = ?", (model,)).fetchone()
+        return row[0] if row else None
+
+    def set_weights_identity(self, model: str, identity: str) -> None:
+        with self.lock:
+            self.conn.execute(
+                "INSERT OR REPLACE INTO model_weights (model, identity, recorded_at) "
+                "VALUES (?, ?, ?)", (model, identity, time.time()))
+            self._commit()
+
+    def forget_model(self, model: str) -> tuple[int, int]:
+        """Delete every cached row for one model, and its recorded weights.
+        Returns (embedding_rows, conditioning_rows) removed."""
+        with self.lock:
+            e = self.conn.execute("DELETE FROM embeddings WHERE model = ?", (model,)).rowcount
+            c = self.conn.execute("DELETE FROM conditionings WHERE model = ?", (model,)).rowcount
+            self.conn.execute("DELETE FROM model_weights WHERE model = ?", (model,))
             self._commit()
         return e, c
 

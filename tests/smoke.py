@@ -581,6 +581,43 @@ def test_jumpstart_teacher_cache_is_bounded():
     print("ok: the jumpstart teacher cache is bounded, least recently used out first")
 
 
+def test_swapped_weights_are_caught():
+    """The cache names a model by path. Different weights at the same path
+    (a finetune copied over its base) used to be served the old vectors."""
+    from tokencollider.embedder import Embedder
+    from tokencollider.store import EmbeddingStore
+
+    with tempfile.TemporaryDirectory() as d:
+        weights = Path(d) / "w.safetensors"
+        weights.write_bytes(bytes(range(256)) * 4096)  # 1 MiB
+        store = EmbeddingStore(Path(d) / "c.db")
+
+        def embedder():
+            return Embedder(store, model_name=str(weights), layer="35",
+                            config_repo="Qwen/Qwen3-4B")
+
+        embedder().check_weights()                   # first run: recorded
+        embedder().check_weights()                   # same weights: fine
+        store.put(str(weights), "35", "mean", "{}", "red", np.ones(4, np.float32))
+        data = bytearray(weights.read_bytes())
+        data[len(data) // 2] ^= 0xFF                 # same size, new values
+        weights.write_bytes(bytes(data))
+        try:
+            embedder().check_weights()
+            raise AssertionError("swapped weights were not caught")
+        except SystemExit as e:
+            assert "forget --model" in str(e), e
+        e, _c = store.forget_model(str(weights))
+        assert e == 1 and store.weights_identity(str(weights)) is None
+        embedder().check_weights()                   # cleared: records the new ones
+        assert store.weights_identity(str(weights)) is not None
+        # No weights on disk (a cache-only session): nothing to check.
+        Embedder(store, model_name=str(Path(d) / "gone.safetensors"), layer="35",
+                 config_repo="Qwen/Qwen3-4B").check_weights()
+        store.close()
+    print("ok: weights swapped in at a cached model's path are refused until forgotten")
+
+
 if __name__ == "__main__":
     test_store_roundtrip()
     test_store_forget_large_batch()
@@ -594,6 +631,7 @@ if __name__ == "__main__":
     test_bridge_refuses_an_anchor_from_another_frame()
     test_bridge_caption_ext_without_dot()
     test_jumpstart_teacher_cache_is_bounded()
+    test_swapped_weights_are_caught()
     test_bridge_dropout_pair()
     test_bridge_alternate_anchors()
     test_cli_parsing()
