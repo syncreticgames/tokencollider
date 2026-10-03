@@ -373,8 +373,6 @@ def test_bridge_alternate_anchors():
     being concatenated into one, so the trainer can sample a different anchor
     per step. The two halves live in different files, so this also pins the
     glob pattern the trainer uses against the names the bridge writes."""
-    import glob as _glob
-    import re
     import tempfile
 
     import numpy as np
@@ -388,8 +386,9 @@ def test_bridge_alternate_anchors():
     emb = FakeEmbedder(dim=32)
     with tempfile.TemporaryDirectory() as d:
         root = Path(d)
-        Image.new("RGB", (8, 8)).save(root / "a.png")
-        (root / "a.txt").write_text("a photo", encoding="utf-8")
+        # Brackets in the name: a glob would read them as a character class.
+        Image.new("RGB", (8, 8)).save(root / "a [1].png")
+        (root / "a [1].txt").write_text("a photo", encoding="utf-8")
         anchors = []
         for i in range(3):
             a = root / f"anchor{i}.safetensors"
@@ -399,19 +398,22 @@ def test_bridge_alternate_anchors():
         bridge.write_cache(root, emb, anchors, "zimage", jumpstart=True, alternates=True)
 
         cache = root / "_t_e_cache"
-        stem = str(cache / f"a_{bridge.cache_hash('a photo', 'zimage')}")
-        # The trainer globs for this exact shape; keep the two in step.
+        stem = str(cache / f"a [1]_{bridge.cache_hash('a photo', 'zimage')}")
+        # The trainer's own lookup must find what the bridge wrote. Its module
+        # imports ai-toolkit, so run the path helpers alone.
         src = (Path(__file__).resolve().parent.parent / "trainers" /
                "tokencollider_jumpstart" / "JumpstartTrainer.py").read_text(encoding="utf-8")
-        pattern = re.search(r'root \+ "(\.anchor\.[^"]+)"', src).group(1)
-        found = sorted(_glob.glob(stem + pattern))
-        assert len(found) == 3, (pattern, found, sorted(p.name for p in cache.iterdir()))
+        ns = {}
+        exec("\n".join(l for l in src.split("def trainer_base")[0].splitlines()
+                       if not l.startswith(("from extensions_built_in", "from toolkit"))), ns)
+        found = ns["alternate_paths_for"](stem + ".safetensors")
+        assert len(found) == 3, (found, sorted(p.name for p in cache.iterdir()))
         assert not Path(stem + bridge.ANCHOR_SUFFIX).exists(), \
             "alternates should replace the single fixed anchor, not add to it"
         # The dropout caption's teachers follow the same layout, or a dropout
         # step falls back to every anchor concatenated: a different target.
-        blank = str(cache / f"a_{bridge.cache_hash(bridge.dropout_caption(None), 'zimage')}")
-        assert len(_glob.glob(blank + pattern)) == 3
+        blank = str(cache / f"a [1]_{bridge.cache_hash(bridge.dropout_caption(None), 'zimage')}")
+        assert len(ns["alternate_paths_for"](blank + ".safetensors")) == 3
         assert not Path(blank + bridge.ANCHOR_SUFFIX).exists()
         try:
             bridge.write_cache(root, emb, anchors, "zimage", alternates=True)

@@ -62,7 +62,9 @@ def alternate_paths_for(text_embedding_path: str) -> list[str]:
     --jumpstart --alternates`. Empty when the bridge wrote a single fixed
     anchor, which is the default."""
     root, ext = os.path.splitext(text_embedding_path)
-    return sorted(glob.glob(root + ".anchor.[0-9][0-9].safetensors"))
+    # Escaped: an image named `photo [1].jpg` puts brackets in `root`, which a
+    # glob reads as a character class, and then nothing matches.
+    return sorted(glob.glob(glob.escape(root) + ".anchor.[0-9][0-9].safetensors"))
 
 
 def trainer_base():
