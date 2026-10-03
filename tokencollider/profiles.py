@@ -57,7 +57,7 @@ class ModelProfile:
     # Prefix for this profile's environment variables, e.g. TOKENCOLLIDER_KREA2_MODEL,
     # TOKENCOLLIDER_KREA2_CONFIG_DIR, TOKENCOLLIDER_KREA2_LAYER. Every setting is read under this
     # prefix and nowhere else.
-    env_prefix: str = "CX"
+    env_prefix: str = "TOKENCOLLIDER"
     # Where this profile came from, for the banner: "built-in" or a file path.
     origin: str = "built-in"
     # Whether the sampler is handed the prompt tokens onward, with the

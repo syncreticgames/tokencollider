@@ -10,8 +10,7 @@ wrong frame.
 
 File format stays a plain phrase-per-line text file. Metadata rides in a
 single `#tokencollider {json}` comment line, which every existing reader
-already skips. Files written before the rename carry `#cx {json}` instead,
-and still load.
+already skips.
 """
 
 import hashlib
@@ -21,7 +20,6 @@ import time
 from pathlib import Path
 
 HEADER_PREFIX = "#tokencollider "
-LEGACY_HEADER_PREFIX = "#cx "
 
 # The config fields that change embedding geometry. A mismatch in any of them
 # means coordinates from the file's frame are meaningless in the session's.
@@ -89,7 +87,7 @@ def is_universe_file(path: Path, scan_bytes: int = 1 << 16) -> bool:
             head = f.read(scan_bytes).decode("utf-8", errors="ignore")
     except OSError:
         return False
-    return any(line.strip().startswith((HEADER_PREFIX, LEGACY_HEADER_PREFIX))
+    return any(line.strip().startswith(HEADER_PREFIX)
                for line in head.splitlines())
 
 
@@ -113,10 +111,8 @@ def read_universe(path: Path) -> tuple[list[str], dict | None]:
     meta: dict | None = None
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
-        prefix = next((p for p in (HEADER_PREFIX, LEGACY_HEADER_PREFIX)
-                       if line.startswith(p)), None)
-        if prefix and meta is None:
-            meta = json.loads(line[len(prefix):])
+        if line.startswith(HEADER_PREFIX) and meta is None:
+            meta = json.loads(line[len(HEADER_PREFIX):])
         elif line and not line.startswith("#"):
             phrases.append(line)
     return phrases, meta
