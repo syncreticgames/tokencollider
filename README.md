@@ -1,5 +1,7 @@
 # TokenCollider
 
+![The TokenCollider viewport: phrases about software and AI, with their trails across the encoder's layers](docs/tokencollider_screenshot.png)
+
 TokenCollider shows how a text encoder arranges phrases, and turns points in
 that arrangement into conditioning files for diffusion models.
 
