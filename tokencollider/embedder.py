@@ -46,6 +46,26 @@ QUANT_SUFFIX = ".comfy_quant"
 BATCH_SIZE = int(os.environ.get("TOKENCOLLIDER_BATCH", "32"))
 
 
+def skeleton_guard():
+    """The context that stops transformers from initializing a model's
+    weights, so the CPU skeleton _load_local_safetensors builds stays
+    uncommitted memory. transformers 5 moved it from modeling_utils to
+    initialization; without it every fp32 parameter is written, about 16 GB
+    of RAM for a 4B text tower, before the real weights replace it."""
+    try:
+        from transformers.initialization import no_init_weights
+    except ImportError:
+        try:
+            from transformers.modeling_utils import no_init_weights
+        except ImportError:
+            import contextlib
+
+            print("[tokencollider] warning: this transformers has no no_init_weights; "
+                  "loading will briefly hold the whole model at fp32 in RAM")
+            return contextlib.nullcontext()
+    return no_init_weights()
+
+
 def strip_tower_prefix(key: str) -> str | None:
     """Text-tower key as the model class wants it, unprefixed, or None for
     the output head, which the text tower has no place for.
@@ -667,13 +687,7 @@ class Embedder:
         # are lazily committed and never written — assign=True replaces every
         # param with the loaded GPU tensor, so only the real bf16 weights
         # (~8GB) ever land in VRAM.
-        try:
-            from transformers.modeling_utils import no_init_weights
-        except ImportError:
-            import contextlib
-
-            no_init_weights = contextlib.nullcontext
-        with no_init_weights():
+        with skeleton_guard():
             model = model_cls(text_config)
         state, n_dequantized, n_skipped = self._read_state(dtype, skip_prefixes, rename)
         shards = self.weight_files()

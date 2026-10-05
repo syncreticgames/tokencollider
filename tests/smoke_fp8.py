@@ -486,6 +486,34 @@ def test_fp32_checkpoint_peaks_at_target_size():
     print("ok: an fp32 checkpoint loads without holding it whole at fp32")
 
 
+def test_skeleton_guard_leaves_weights_unwritten():
+    # transformers 5 moved no_init_weights; the old import failed silently and
+    # every fp32 parameter of the CPU skeleton was written (16 GB for a 4B
+    # tower). A two-layer stand-in shows the difference without a model file.
+    import gc
+
+    from transformers.models.qwen3_vl.configuration_qwen3_vl import Qwen3VLTextConfig
+    from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLTextModel
+
+    from tokencollider.embedder import skeleton_guard
+
+    cfg = Qwen3VLTextConfig(hidden_size=2560, intermediate_size=9728, num_hidden_layers=2,
+                            num_attention_heads=32, num_key_value_heads=8, vocab_size=32000)
+
+    def resident_mib():
+        return int(Path("/proc/self/statm").read_text(encoding="ascii").split()[1]) * 4096 / 2**20
+
+    gc.collect()
+    before = resident_mib()
+    with skeleton_guard():
+        model = Qwen3VLTextModel(cfg)
+    grew = resident_mib() - before
+    size = sum(p.numel() for p in model.parameters()) * 4 / 2**20
+    del model
+    gc.collect()
+    assert grew < size / 10, f"skeleton committed {grew:.0f} MiB of a {size:.0f} MiB model"
+
+
 if __name__ == "__main__":
     test_pack_encoder()
     test_dequantizes_and_strips_prefix()
@@ -502,4 +530,5 @@ if __name__ == "__main__":
     test_text_tower_dispatch()
     test_peek_keys_reads_header_only()
     test_vram_needed_scales_with_the_model()
+    test_skeleton_guard_leaves_weights_unwritten()
     print("all fp8 loader tests passed")
